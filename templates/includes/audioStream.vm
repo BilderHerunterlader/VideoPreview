@@ -1,0 +1,2 @@
+#set($audioInfo = $audioStream.getInfo())
+Audio:        $audioInfo.get("Format")     $audioInfo.get("SamplingRate")     $audioInfo.get("Channels") Channels     ($audioInfo.get("Language"))

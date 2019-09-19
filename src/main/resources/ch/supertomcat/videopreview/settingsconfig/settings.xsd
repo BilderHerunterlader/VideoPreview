@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<!-- Root Element -->
+	<xs:element name="settings">
+		<xs:complexType>
+			<xs:sequence>
+				<!-- Directories -->
+				<xs:element name="directorySettings" type="DirectorySettings" />
+					
+				<!-- GUI -->
+				<xs:element name="guiSettings" type="GUISettings" />
+				
+				<!-- Other Settings -->
+				<xs:element name="logLevel" type="LogLevelSetting" default="INFO" />
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Log Level -->
+	<xs:simpleType name="LogLevelSetting" >
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="TRACE" />
+			<xs:enumeration value="DEBUG" />
+			<xs:enumeration value="INFO" />
+			<xs:enumeration value="WARN" />
+			<xs:enumeration value="ERROR" />
+			<xs:enumeration value="FATAL" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Directory Settings -->
+	<xs:complexType name="DirectorySettings">
+		<xs:sequence>
+			<xs:element name="lastUsedPath" type="xs:string" nillable="true" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<!-- GUI Settings -->
+	<xs:complexType name="GUISettings">
+		<xs:sequence>
+			<xs:element name="lookAndFeel" type="LookAndFeelSetting" default="LAF_OS" />
+			
+			<xs:element name="selectedMainTemplate" type="xs:string" nillable="true" />
+			<xs:element name="selectedFooterTemplate" type="xs:string" nillable="true" />
+			
+			<xs:element name="mainWindow" type="WindowSettings" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:simpleType name="LookAndFeelSetting" >
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="LAF_DEFAULT" />
+			<xs:enumeration value="LAF_OS" />
+			<xs:enumeration value="LAF_METAL" />
+			<xs:enumeration value="LAF_WINDOWS" />
+			<xs:enumeration value="LAF_WINDOWS_CLASSIC" />
+			<xs:enumeration value="LAF_MOTIF" />
+			<xs:enumeration value="LAF_GTK" />
+			<xs:enumeration value="LAF_MACOS" />
+			<xs:enumeration value="LAF_NIMBUS" />
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:complexType name="WindowSettings">
+		<xs:sequence>
+			<xs:element name="width" type="xs:int" default="0" />
+			<xs:element name="height" type="xs:int" default="0" />
+			<xs:element name="x" type="xs:int" default="0" />
+			<xs:element name="y" type="xs:int" default="0" />
+			<xs:element name="state" type="xs:int" default="0" />
+		</xs:sequence>
+		<!-- Required Window Name -->
+		<xs:attribute name="name" type="xs:string" use="required" />
+		<!-- Required Flag if Window Size and Position should be saved -->
+		<xs:attribute name="save" type="xs:boolean" use="required" />
+	</xs:complexType>
+</xs:schema>

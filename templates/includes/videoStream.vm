@@ -1,0 +1,8 @@
+#set($videoInfo = $videoStream.getInfo())
+#set($scanTypeShort = "")
+#if($videoInfo.get("ScanType").toLowerCase() == "progressive")
+#set($scanTypeShort = "p")
+#elseif($videoInfo.get("ScanType").toLowerCase() == "interlaced")
+#set($scanTypeShort = "i")
+#end
+Video:        $videoInfo.get("Format")     $videoInfo.get("Width")x$videoInfo.get("Height")$scanTypeShort     $videoInfo.get("DisplayAspectRatio")     $videoInfo.get("FrameRate") fps     Container: $videoInfo.get("ContainerFormat")     $videoInfo.get("MultiView_Layout")

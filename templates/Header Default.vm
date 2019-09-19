@@ -1,0 +1,12 @@
+#set($defaultInfo = $mediaInfo.getInfo())
+$mediaInfo.getFilename()
+Filesize:    $defaultInfo.get("FileSize")
+Duration:   $defaultInfo.get("Duration")
+#foreach($videoStream in $mediaInfo.getVideoStreams())
+#parse("includes/videoStream.vm")
+
+#end
+#foreach($audioStream in $mediaInfo.getAudioStreams())
+#parse("includes/audioStream.vm")
+
+#end
