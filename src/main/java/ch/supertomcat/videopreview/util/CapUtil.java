@@ -1,4 +1,4 @@
-package ch.supertomcat.videopreview.creator;
+package ch.supertomcat.videopreview.util;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;

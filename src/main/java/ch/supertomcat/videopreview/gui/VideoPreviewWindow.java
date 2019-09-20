@@ -5,15 +5,14 @@ import java.awt.Image;
 import java.awt.dnd.DropTarget;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.FocusEvent;
-import java.awt.event.FocusListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.File;
+import java.io.FileFilter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Vector;
-import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -34,6 +33,8 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SpringLayout;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 
@@ -44,20 +45,48 @@ import ch.supertomcat.supertomcatutils.gui.PositionUtil;
 import ch.supertomcat.supertomcatutils.gui.combobox.renderer.FilenameComboBoxRenderer;
 import ch.supertomcat.supertomcatutils.gui.dialog.FileDialogUtil;
 import ch.supertomcat.supertomcatutils.gui.layout.GridBagLayoutContainer;
+import ch.supertomcat.supertomcatutils.gui.progress.IProgressObserver;
+import ch.supertomcat.supertomcatutils.gui.progress.ProgressObserver;
 import ch.supertomcat.supertomcatutils.gui.table.renderer.DefaultStringColorRowRenderer;
-import ch.supertomcat.videopreview.creator.CapUtil;
 import ch.supertomcat.videopreview.creator.PreviewCreator;
 import ch.supertomcat.videopreview.creator.PreviewCreatorException;
 import ch.supertomcat.videopreview.creator.PreviewCreatorOpenCV;
 import ch.supertomcat.videopreview.settings.SettingsManager;
 import ch.supertomcat.videopreview.settingsconfig.LogLevelSetting;
 import ch.supertomcat.videopreview.templates.TemplateManager;
+import ch.supertomcat.videopreview.util.CapUtil;
 
 /**
  * Main-Window
  */
-public class VideoPreviewWindow extends JFrame implements ActionListener {
+public class VideoPreviewWindow extends JFrame {
 	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Pattern for video files
+	 * TODO Update pattern include missing formats if there are any
+	 */
+	private static final Pattern VIDEO_FILE_PATTERN = Pattern.compile("(?i).*?\\.(avi|mpg|mpeg|mkv|rm|wmv|flv|mp4|asf|mov|ts|m2ts)$");
+
+	/**
+	 * FileFilter for video files
+	 */
+	private static final FileFilter VIDEO_FILE_FILTER = new FileFilter() {
+		@Override
+		public boolean accept(File pathname) {
+			return pathname.isFile() && VIDEO_FILE_PATTERN.matcher(pathname.getName()).matches();
+		}
+	};
+
+	/**
+	 * FileFilter for directories
+	 */
+	private static final FileFilter DIRECTORY_FILE_FILTER = new FileFilter() {
+		@Override
+		public boolean accept(File pathname) {
+			return pathname.isDirectory();
+		}
+	};
 
 	/**
 	 * Caps Row Height
@@ -68,11 +97,6 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 	 * Logger
 	 */
 	public Logger logger = LoggerFactory.getLogger(getClass());
-
-	/**
-	 * Template Manager
-	 */
-	private final TemplateManager templateManager;
 
 	/**
 	 * Settings Manager
@@ -207,22 +231,22 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 	/**
 	 * Caps Select Button
 	 */
-	private JButton btnCaps = new JButton("...");
+	private JButton btnCapsSelect = new JButton("...");
 
 	/**
 	 * Caps Up Button
 	 */
-	private JButton btnUp = new JButton("\u25B2");
+	private JButton btnCapsUp = new JButton("\u25B2");
 
 	/**
 	 * Caps Down Button
 	 */
-	private JButton btnDown = new JButton("\u25BC");
+	private JButton btnCapsDown = new JButton("\u25BC");
 
 	/**
 	 * Caps Delete Button
 	 */
-	private JButton btnDelete = new JButton("X");
+	private JButton btnCapsRemove = new JButton("X");
 
 	/**
 	 * Panel Template Selection
@@ -305,6 +329,11 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 	private JButton btnExit = new JButton("Exit");
 
 	/**
+	 * Cap File Column Model Index
+	 */
+	private final int capFileColumnModelIndex = jtCaps.getColumn("Cap-File").getModelIndex();
+
+	/**
 	 * Constructor
 	 * 
 	 * @param settingsManager Settings Manager
@@ -313,20 +342,10 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 	@SuppressWarnings("unchecked")
 	public VideoPreviewWindow(SettingsManager settingsManager, TemplateManager templateManager) {
 		super("VideoPreview");
-		this.templateManager = templateManager;
 		this.settingsManager = settingsManager;
 		this.previewCreator = new PreviewCreatorOpenCV(templateManager);
 
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-		jtCaps.getColumn("Cap-Preview").setCellRenderer(new CapPreviewRenderer());
-		jtCaps.getColumn("Cap-Preview").setPreferredWidth(120);
-		jtCaps.getColumn("Cap-Preview").setMaxWidth(120);
-		jtCaps.setRowHeight(CAPS_ROW_HEIGHT);
-		jtCaps.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		jtCaps.setDefaultRenderer(Object.class, new DefaultStringColorRowRenderer());
-
-		txtVideo.setEditable(false);
 
 		cbRecursive.setEnabled(rbMulti.isSelected());
 		rbMulti.addItemListener(new ItemListener() {
@@ -337,9 +356,27 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 		});
 		bgMode.add(rbSingle);
 		bgMode.add(rbMulti);
+
 		pnlMode.add(rbSingle);
 		pnlMode.add(rbMulti);
 		pnlMode.add(cbRecursive);
+
+		txtVideo.setEditable(false);
+		new DropTarget(txtVideo, new VideoDropTargetListener(txtVideo, rbMulti));
+		btnVideo.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				File selectedPath;
+				if (rbSingle.isSelected()) {
+					selectedPath = FileDialogUtil.showFileOpenDialog(VideoPreviewWindow.this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
+				} else {
+					selectedPath = FileDialogUtil.showFolderOpenDialog(VideoPreviewWindow.this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
+				}
+				if (selectedPath != null) {
+					txtVideo.setText(selectedPath.getAbsolutePath());
+				}
+			}
+		});
 
 		pnlCapsConfig.add(cbAutoTile);
 		pnlCapsConfig.add(cbAutoCaps);
@@ -349,6 +386,157 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 		pnlCapsConfig.add(txtRows);
 		pnlCapsConfig.add(lblWidth);
 		pnlCapsConfig.add(txtWidth);
+
+		cbAutoTile.addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				boolean selected = cbAutoTile.isSelected();
+				txtCols.setEnabled(!selected);
+				txtRows.setEnabled(!selected);
+			}
+		});
+
+		cbAutoCaps.addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				boolean selected = cbAutoCaps.isSelected();
+				jtCaps.setEnabled(!selected);
+				btnCapsDown.setEnabled(!selected);
+				btnCapsUp.setEnabled(!selected);
+				btnCapsRemove.setEnabled(!selected);
+				btnCapsSelect.setEnabled(!selected);
+				lblCaps.setEnabled(!selected);
+			}
+		});
+
+		txtCols.setEnabled(!cbAutoTile.isSelected());
+		txtCols.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				updateCapsLabel();
+			}
+
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				updateCapsLabel();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				updateCapsLabel();
+			}
+		});
+
+		txtRows.setEnabled(!cbAutoTile.isSelected());
+		txtRows.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				updateCapsLabel();
+			}
+
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				updateCapsLabel();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				updateCapsLabel();
+			}
+		});
+
+		model.addTableModelListener(new TableModelListener() {
+			@Override
+			public void tableChanged(TableModelEvent e) {
+				updateCapsLabel();
+			}
+		});
+
+		jtCaps.getColumn("Cap-Preview").setCellRenderer(new CapPreviewRenderer());
+		jtCaps.getColumn("Cap-Preview").setPreferredWidth(120);
+		jtCaps.getColumn("Cap-Preview").setMaxWidth(120);
+		jtCaps.setRowHeight(CAPS_ROW_HEIGHT);
+		jtCaps.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		jtCaps.setDefaultRenderer(Object.class, new DefaultStringColorRowRenderer());
+
+		ProgressObserver progressObserver = new ProgressObserver();
+		progressObserver.addProgressListener(new IProgressObserver() {
+			@Override
+			public void progressModeChanged(boolean indeterminate) {
+				if (EventQueue.isDispatchThread()) {
+					pg.setIndeterminate(indeterminate);
+				} else {
+					EventQueue.invokeLater(() -> pg.setIndeterminate(indeterminate));
+				}
+			}
+
+			@Override
+			public void progressIncreased() {
+				if (EventQueue.isDispatchThread()) {
+					pg.setValue(pg.getValue() + 1);
+				} else {
+					EventQueue.invokeLater(() -> pg.setValue(pg.getValue() + 1));
+				}
+			}
+
+			@Override
+			public void progressCompleted() {
+				if (EventQueue.isDispatchThread()) {
+					pg.setValue(pg.getMaximum());
+				} else {
+					EventQueue.invokeLater(() -> pg.setValue(pg.getMaximum()));
+				}
+			}
+
+			@Override
+			public void progressChanged(int min, int max, int val) {
+				setPGMin(min);
+				setPGMax(max);
+				updatePG(val);
+			}
+
+			@Override
+			public void progressChanged(boolean visible) {
+				if (EventQueue.isDispatchThread()) {
+					pg.setVisible(visible);
+				} else {
+					EventQueue.invokeLater(() -> pg.setVisible(visible));
+				}
+			}
+
+			@Override
+			public void progressChanged(String text) {
+				updatePG(text);
+			}
+
+			@Override
+			public void progressChanged(int val) {
+				updatePG(val);
+			}
+		});
+		VideoPreviewWindowObserver mainWindowObserver = new VideoPreviewWindowObserver();
+		mainWindowObserver.addProgressListener(new VideoPreviewWindowListener() {
+			@Override
+			public void unlockGUI() {
+				VideoPreviewWindow.this.unlockGUI();
+			}
+
+			@Override
+			public void lockGUI() {
+				VideoPreviewWindow.this.lockGUI();
+			}
+		});
+		new DropTarget(spCaps, new CapDropTargetListener(model, progressObserver, mainWindowObserver, CAPS_ROW_HEIGHT));
+
+		box.add(btnCapsSelect);
+		box.add(btnCapsUp);
+		box.add(btnCapsDown);
+		box.add(btnCapsRemove);
+
+		btnCapsSelect.addActionListener(e -> actionCapsSelect());
+		btnCapsUp.addActionListener(e -> actionCapsUp());
+		btnCapsDown.addActionListener(e -> actionCapsDown());
+		btnCapsRemove.addActionListener(e -> actionCapsRemove());
 
 		FilenameComboBoxRenderer filenameComboBoxRenderer = new FilenameComboBoxRenderer();
 
@@ -412,53 +600,11 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 		pnlTemplates.add(cmbFooterTemplate);
 		SpringUtilities.makeCompactGrid(pnlTemplates, 2, 2, 5, 5, 5, 5);
 
-		txtCols.setEnabled(!cbAutoTile.isSelected());
-		txtRows.setEnabled(!cbAutoTile.isSelected());
+		pg.setStringPainted(true);
+		pgO.setStringPainted(true);
 
-		txtCols.addFocusListener(new FocusListener() {
-			@Override
-			public void focusLost(FocusEvent e) {
-				updateCapsLabel();
-			}
-
-			@Override
-			public void focusGained(FocusEvent e) {
-
-			}
-		});
-
-		txtRows.addFocusListener(new FocusListener() {
-			@Override
-			public void focusLost(FocusEvent e) {
-				updateCapsLabel();
-			}
-
-			@Override
-			public void focusGained(FocusEvent e) {
-
-			}
-		});
-
-		cbAutoTile.addChangeListener(new ChangeListener() {
-			@Override
-			public void stateChanged(ChangeEvent e) {
-				boolean b = cbAutoTile.isSelected();
-				txtCols.setEnabled(!b);
-				txtRows.setEnabled(!b);
-			}
-		});
-
-		cbAutoCaps.addChangeListener(new ChangeListener() {
-			@Override
-			public void stateChanged(ChangeEvent e) {
-				boolean b = cbAutoCaps.isSelected();
-				jtCaps.setEnabled(!b);
-				btnDown.setEnabled(!b);
-				btnUp.setEnabled(!b);
-				btnDelete.setEnabled(!b);
-				btnCaps.setEnabled(!b);
-				lblCaps.setEnabled(!b);
-			}
+		btnSaveSettings.addActionListener(e -> {
+			// TODO Save Settings
 		});
 
 		cmbDebugLevel.addItem(LogLevelSetting.TRACE);
@@ -475,16 +621,6 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 			}
 		});
 
-		btnVideo.addActionListener(this);
-		btnCaps.addActionListener(this);
-		btnCreate.addActionListener(this);
-		btnSaveSettings.addActionListener(this);
-		btnClear.addActionListener(this);
-		btnExit.addActionListener(this);
-		btnUp.addActionListener(this);
-		btnDown.addActionListener(this);
-		btnDelete.addActionListener(this);
-
 		cbAlwaysOnTop.addChangeListener(new ChangeListener() {
 			@Override
 			public void stateChanged(ChangeEvent e) {
@@ -493,9 +629,14 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 		});
 		cbAlwaysOnTop.setSelected(false);
 
-		pg.setMinimum(0);
-		pg.setMaximum(5);
-		pg.setValue(0);
+		btnCreate.addActionListener(e -> actionCreate());
+		btnClear.addActionListener(e -> {
+			txtVideo.setText("");
+			for (int i = jtCaps.getRowCount() - 1; i > -1; i--) {
+				model.removeRow(i);
+			}
+		});
+		btnExit.addActionListener(e -> dispose());
 
 		pnlButtons.add(btnSaveSettings);
 		pnlButtons.add(cmbDebugLevel);
@@ -520,10 +661,6 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 		x++;
 		gblc.add(lblCaps, 0, x, 3, 1, 0.0d, 0.0d);
 		x++;
-		box.add(btnCaps);
-		box.add(btnUp);
-		box.add(btnDown);
-		box.add(btnDelete);
 		gblc.add(spCaps, 0, x, 2, 1, 0.0d, 0.3d);
 		gblc.add(box, 2, x, 1, 1, 0.0d, 0.0d);
 		x++;
@@ -537,358 +674,381 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 		x++;
 		gblc.add(pnlButtons, 0, x, 3, 1, 1.0d, 0.0d);
 
-		getContentPane().add(mainPanel);
-
-		model.addTableModelListener(new TableModelListener() {
-			@Override
-			public void tableChanged(TableModelEvent e) {
-				updateCapsLabel();
-			}
-		});
-
-		new DropTarget(spCaps, new CapDropTargetListener(model, this));
-
-		new DropTarget(txtVideo, new VideoDropTargetListener(txtVideo));
+		add(mainPanel);
 
 		pack();
-
 		PositionUtil.setPositionMiddleScreen(this, null);
-
 		setVisible(true);
 	}
 
 	/**
-	 * @param value
-	 */
-	public synchronized void updatePG(final int value) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				pg.setValue(value);
-			}
-		});
-	}
-
-	/**
-	 * @param text
-	 */
-	public synchronized void updatePG(final String text) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				pg.setStringPainted(true);
-				pg.setString(text);
-			}
-		});
-	}
-
-	/**
-	 * @param min
-	 */
-	public synchronized void setPGMin(final int min) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				pg.setMinimum(min);
-			}
-		});
-	}
-
-	/**
-	 * @param max
-	 */
-	public synchronized void setPGMax(final int max) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				pg.setMaximum(max);
-			}
-		});
-	}
-
-	/**
-	 * @param value
-	 */
-	public synchronized void updateOPG(final int value) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				int val = pgO.getValue() + 1;
-				if (value == -1 && val <= pgO.getMaximum()) {
-					pgO.setValue(pgO.getValue() + 1);
-					pgO.setStringPainted(true);
-					String text = pgO.getValue() + " / " + pgO.getMaximum();
-					pgO.setString(text);
-					VideoPreviewWindow.this.setTitle("VideoPreview (" + text + ")");
-				} else {
-					pgO.setValue(value);
-					pgO.setStringPainted(true);
-					String text = value + " / " + pgO.getMaximum();
-					pgO.setString(text);
-					VideoPreviewWindow.this.setTitle("VideoPreview (" + text + ")");
-				}
-			}
-		});
-	}
-
-	/**
-	 * @param text
-	 */
-	public synchronized void updateOPG(final String text) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				pgO.setStringPainted(true);
-				pgO.setString(text);
-			}
-		});
-	}
-
-	/**
-	 * @param min
-	 */
-	public synchronized void setOPGMin(final int min) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				pgO.setMinimum(min);
-			}
-		});
-	}
-
-	/**
-	 * @param max
-	 */
-	public synchronized void setOPGMax(final int max) {
-		EventQueue.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				pgO.setMaximum(max);
-			}
-		});
-	}
-
-	/*
-	 * (non-Javadoc)
+	 * Update Progress Value
 	 * 
-	 * @see java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
+	 * @param value Value
 	 */
-	@Override
-	public void actionPerformed(ActionEvent e) {
-		if (e.getSource() == btnExit) {
-			this.dispose();
-		} else if (e.getSource() == btnCreate) {
-			if (txtVideo.getText().length() == 0) {
-				updateOPG("No Video or Path selected");
-				return;
-			}
-			File fVideo = new File(txtVideo.getText());
-			if (fVideo.exists() == false) {
-				fVideo = null;
-				updateOPG("Video or Path does not exist");
-				return;
-			} else {
-				if (rbSingle.isSelected()) {
-					if (fVideo.isFile() == false) {
-						fVideo = null;
-						updateOPG("Selected Video ist not a file");
-						return;
-					}
-				} else {
-					if (fVideo.isDirectory() == false) {
-						fVideo = null;
-						updateOPG("Selected path is not a directory");
-						return;
-					}
-				}
-			}
-			fVideo = null;
-			if (cbAutoCaps.isSelected() == false && jtCaps.getRowCount() == 0) {
-				int choice = JOptionPane.showConfirmDialog(this, "No Caps in Cap-Table, abort?", "No Caps Found", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-				if (choice == JOptionPane.YES_OPTION) {
-					updateOPG("No Caps in Cap-Table");
-					return;
-				}
-			}
-
-			final String videoFile = txtVideo.getText();
-			String capsa[] = new String[jtCaps.getRowCount()];
-			for (int i = 0; i < jtCaps.getRowCount(); i++) {
-				capsa[i] = (String)jtCaps.getValueAt(i, 1);
-			}
-
-			final int rows;
-			final int cols;
-			final int width;
-			try {
-				width = Integer.parseInt(txtWidth.getText());
-			} catch (NumberFormatException nfe) {
-				updateOPG("Width is not a number");
-				return;
-			}
-			try {
-				rows = Integer.parseInt(txtRows.getText());
-			} catch (NumberFormatException nfe) {
-				updateOPG("Rows is not a number");
-				return;
-			}
-			try {
-				cols = Integer.parseInt(txtCols.getText());
-			} catch (NumberFormatException nfe) {
-				updateOPG("Columns is not a number");
-				return;
-			}
-
-			final boolean autoTile = cbAutoTile.isSelected();
-			final boolean autoCaps = cbAutoCaps.isSelected();
-			final String capsarr[] = capsa;
-
-			Thread t = new Thread(new Runnable() {
-				@Override
-				public void run() {
-					lockGUI(true);
-
-					File selectedMainTemplate = (File)cmbMainTemplate.getSelectedItem();
-					if (selectedMainTemplate == null) {
-						return;
-					}
-					File selectedFooterTemplate = (File)cmbFooterTemplate.getSelectedItem();
-					if (selectedFooterTemplate == null) {
-						return;
-					}
-
-					File folder = new File(videoFile);
-					updateOPG("Searching for Video-Files");
-					Vector<String> videos = null;
-					if (rbSingle.isSelected()) {
-						videos = new Vector<String>();
-						videos.add(videoFile);
-					} else {
-						// TODO createVideoList
-						videos = new Vector<>();
-					}
-
-					if (videos.size() > 0) {
-						setOPGMin(0);
-						setOPGMax(videos.size());
-						updateOPG(0);
-
-						List<File> videoFiles = videos.stream().map(x -> new File(x)).collect(Collectors.toList());
-						List<File> capFiles = Arrays.stream(capsarr).map(x -> new File(x)).collect(Collectors.toList());
-
-						try {
-							previewCreator.createPreviews(videoFiles, width, autoTile, rows, cols, autoCaps, capFiles, selectedMainTemplate, selectedFooterTemplate);
-						} catch (PreviewCreatorException e) {
-							logger.error("Could not create previews", e);
-						}
-					} else {
-						updateOPG("No Videos found in folder");
-					}
-					lockGUI(false);
-				}
-			});
-			t.setName("MultiPreviewCreateThread");
-			t.start();
-		} else if (e.getSource() == btnVideo) {
-			if (rbSingle.isSelected()) {
-				File file = FileDialogUtil.showFileOpenDialog(this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
-				if (file != null) {
-					txtVideo.setText(file.getAbsolutePath());
-				}
-			} else {
-				File folder = FileDialogUtil.showFolderOpenDialog(this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
-				if (folder != null) {
-					txtVideo.setText(folder.getAbsolutePath());
-				}
-			}
-		} else if (e.getSource() == btnCaps) {
-			Thread t = new Thread(new Runnable() {
-
-				@Override
-				public void run() {
-					lockGUI(true);
-					File files[] = FileDialogUtil.showMultiFileOpenDialog(VideoPreviewWindow.this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
-					if (files != null) {
-						pg.setMinimum(0);
-						pg.setMaximum(files.length - 1);
-						pg.setValue(0);
-						for (int i = 0; i < files.length; i++) {
-							Image img = CapUtil.getCapPreview(files[i], CAPS_ROW_HEIGHT);
-							model.addRow(files[i].getAbsolutePath(), img);
-							updatePG(i);
-						}
-					}
-					lockGUI(false);
-				}
-			});
-			t.setPriority(Thread.MIN_PRIORITY);
-			t.start();
-		} else if (e.getSource() == btnUp) {
-
-			int row = jtCaps.getSelectedRow();
-			if ((row > 0) && (row < jtCaps.getRowCount())) {
-				model.moveRow(row, row, row - 1);
-				jtCaps.setRowSelectionInterval(row - 1, row - 1);
-			}
-		} else if (e.getSource() == btnDown) {
-			int row = jtCaps.getSelectedRow();
-			if ((row > -1) && (row < (jtCaps.getRowCount() - 1))) {
-				model.moveRow(row, row, row + 1);
-				jtCaps.setRowSelectionInterval(row + 1, row + 1);
-			}
-		} else if (e.getSource() == btnDelete) {
-			int row = jtCaps.getSelectedRow();
-			if ((row > -1) && (row < jtCaps.getRowCount())) {
-				model.removeRow(row);
-				if (row < jtCaps.getRowCount()) {
-					jtCaps.setRowSelectionInterval(row, row);
-				} else {
-					if ((row - 1) > -1) {
-						jtCaps.setRowSelectionInterval(row - 1, row - 1);
-					}
-				}
-			}
-		} else if (e.getSource() == btnClear) {
-			txtVideo.setText("");
-			for (int i = jtCaps.getRowCount() - 1; i > -1; i--) {
-				model.removeRow(i);
-			}
-		} else if (e.getSource() == btnSaveSettings) {
-			// TODO Save settings
+	private void updatePG(final int value) {
+		if (EventQueue.isDispatchThread()) {
+			pg.setValue(value);
+		} else {
+			EventQueue.invokeLater(() -> pg.setValue(value));
 		}
 	}
 
 	/**
-	 * @param b
+	 * Update Progress Text
+	 * 
+	 * @param text Text
 	 */
-	public void lockGUI(final boolean b) {
-		EventQueue.invokeLater(new Runnable() {
+	private void updatePG(final String text) {
+		if (EventQueue.isDispatchThread()) {
+			pg.setString(text);
+		} else {
+			EventQueue.invokeLater(() -> pg.setString(text));
+		}
+	}
+
+	/**
+	 * Update Progress Minimum
+	 * 
+	 * @param min Minimum
+	 */
+	private void setPGMin(final int min) {
+		if (EventQueue.isDispatchThread()) {
+			pg.setMinimum(min);
+		} else {
+			EventQueue.invokeLater(() -> pg.setMinimum(min));
+		}
+	}
+
+	/**
+	 * Update Progress Maximum
+	 * 
+	 * @param max Maximum
+	 */
+	private void setPGMax(final int max) {
+		if (EventQueue.isDispatchThread()) {
+			pg.setMaximum(max);
+		} else {
+			EventQueue.invokeLater(() -> pg.setMaximum(max));
+		}
+	}
+
+	/**
+	 * Update Overall Progress Value
+	 * 
+	 * @param value Value
+	 */
+	private void updateOPG(final int value) {
+		if (EventQueue.isDispatchThread()) {
+			pgO.setValue(value);
+			pgO.setString(value + " / " + pgO.getMaximum());
+		} else {
+			EventQueue.invokeLater(() -> {
+				pgO.setValue(value);
+				pgO.setString(value + " / " + pgO.getMaximum());
+			});
+		}
+	}
+
+	/**
+	 * Update Overall Progress Text
+	 * 
+	 * @param text Text
+	 */
+	private void updateOPG(final String text) {
+		if (EventQueue.isDispatchThread()) {
+			pgO.setString(text);
+		} else {
+			EventQueue.invokeLater(() -> pgO.setString(text));
+		}
+	}
+
+	/**
+	 * Update Overall Progress Minimum
+	 * 
+	 * @param min Minimum
+	 */
+	private void setOPGMin(final int min) {
+		if (EventQueue.isDispatchThread()) {
+			pgO.setMinimum(min);
+		} else {
+			EventQueue.invokeLater(() -> pgO.setMinimum(min));
+		}
+	}
+
+	/**
+	 * Update Overall Progress Maximum
+	 * 
+	 * @param max Maximum
+	 */
+	private void setOPGMax(final int max) {
+		if (EventQueue.isDispatchThread()) {
+			pgO.setMaximum(max);
+		} else {
+			EventQueue.invokeLater(() -> pgO.setMaximum(max));
+		}
+	}
+
+	/**
+	 * Lock GUI
+	 */
+	private void lockGUI() {
+		lockGUI(true);
+	}
+
+	/**
+	 * Unlock GUI
+	 */
+	private void unlockGUI() {
+		lockGUI(false);
+	}
+
+	/**
+	 * Lock or Unlock GUI
+	 * 
+	 * @param lock True if GUI should be locked, false otherwise
+	 */
+	private void lockGUI(final boolean lock) {
+		Runnable lockGUIRunnable = () -> {
+			boolean bAutoCaps = !lock;
+			if (bAutoCaps && cbAutoCaps.isSelected()) {
+				bAutoCaps = false;
+			}
+			btnCapsSelect.setEnabled(bAutoCaps);
+			btnCapsRemove.setEnabled(bAutoCaps);
+			btnCapsDown.setEnabled(bAutoCaps);
+			btnCapsUp.setEnabled(bAutoCaps);
+
+			rbSingle.setEnabled(!lock);
+			rbMulti.setEnabled(!lock);
+			cbAutoCaps.setEnabled(!lock);
+			cbAutoTile.setEnabled(!lock);
+			txtCols.setEnabled(!lock);
+			txtRows.setEnabled(!lock);
+			txtWidth.setEnabled(!lock);
+
+			btnClear.setEnabled(!lock);
+			btnCreate.setEnabled(!lock);
+			btnExit.setEnabled(!lock);
+			btnVideo.setEnabled(!lock);
+			jtCaps.setEnabled(!lock);
+		};
+		if (EventQueue.isDispatchThread()) {
+			lockGUIRunnable.run();
+		} else {
+			EventQueue.invokeLater(lockGUIRunnable);
+		}
+	}
+
+	private void actionCreate() {
+		if (txtVideo.getText().isEmpty()) {
+			updateOPG("No Video or Folder selected");
+			return;
+		}
+
+		File fVideo = new File(txtVideo.getText());
+		if (!fVideo.exists()) {
+			updateOPG("Video or Folder does not exist");
+			return;
+		}
+
+		if (rbSingle.isSelected()) {
+			if (!fVideo.isFile()) {
+				updateOPG("Selected Video ist not a file");
+				return;
+			}
+		} else {
+			if (!fVideo.isDirectory()) {
+				updateOPG("Selected path is not a directory");
+				return;
+			}
+		}
+
+		if (!cbAutoCaps.isSelected() && jtCaps.getRowCount() == 0) {
+			int choice = JOptionPane.showConfirmDialog(this, "No Caps in Cap-Table, abort?", "No Caps Found", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+			if (choice == JOptionPane.YES_OPTION) {
+				updateOPG("No Caps in Cap-Table");
+				return;
+			}
+		}
+
+		File selectedMainTemplate = (File)cmbMainTemplate.getSelectedItem();
+		if (selectedMainTemplate == null) {
+			updateOPG("No template selected");
+			return;
+		}
+
+		File selectedFooterTemplate = (File)cmbFooterTemplate.getSelectedItem();
+		if (selectedFooterTemplate == null) {
+			updateOPG("No footer template selected");
+			return;
+		}
+
+		int width;
+		try {
+			width = Integer.parseInt(txtWidth.getText());
+		} catch (NumberFormatException nfe) {
+			updateOPG("Width is not a number");
+			return;
+		}
+
+		int rows;
+		try {
+			rows = Integer.parseInt(txtRows.getText());
+		} catch (NumberFormatException nfe) {
+			updateOPG("Rows is not a number");
+			return;
+		}
+
+		int cols;
+		try {
+			cols = Integer.parseInt(txtCols.getText());
+		} catch (NumberFormatException nfe) {
+			updateOPG("Columns is not a number");
+			return;
+		}
+
+		boolean autoTile = cbAutoTile.isSelected();
+		boolean autoCaps = cbAutoCaps.isSelected();
+		boolean recursive = cbRecursive.isSelected();
+
+		List<File> capFiles = new ArrayList<>();
+		for (int i = 0; i < jtCaps.getRowCount(); i++) {
+			String capFilePath = (String)model.getValueAt(jtCaps.convertRowIndexToModel(i), capFileColumnModelIndex);
+			capFiles.add(new File(capFilePath));
+		}
+
+		Thread t = new Thread(new Runnable() {
 			@Override
 			public void run() {
-				boolean bAutoCaps = !b;
-				if (bAutoCaps && cbAutoCaps.isSelected()) {
-					bAutoCaps = false;
+				try {
+					lockGUI();
+
+					List<File> videoFiles;
+					if (rbSingle.isSelected()) {
+						videoFiles = Arrays.asList(fVideo);
+					} else {
+						updateOPG("Searching for Video-Files");
+						videoFiles = createVideoList(fVideo, recursive);
+						if (videoFiles.isEmpty()) {
+							updateOPG("No Videos found in folder");
+						}
+					}
+
+					setOPGMin(0);
+					setOPGMax(videoFiles.size());
+					updateOPG(0);
+
+					int i = 0;
+					for (File videoFile : videoFiles) {
+						updateOPG("Create preview for file: " + videoFile.getName());
+						try {
+							previewCreator.createPreview(videoFile, width, autoTile, rows, cols, autoCaps, capFiles, selectedMainTemplate, selectedFooterTemplate);
+						} catch (PreviewCreatorException e) {
+							logger.error("Could not create preview for file: {}", videoFile.getAbsolutePath(), e);
+						}
+						i++;
+						updateOPG(i);
+					}
+				} finally {
+					unlockGUI();
 				}
-				btnCaps.setEnabled(bAutoCaps);
-				btnDelete.setEnabled(bAutoCaps);
-				btnDown.setEnabled(bAutoCaps);
-				btnUp.setEnabled(bAutoCaps);
-
-				rbSingle.setEnabled(!b);
-				rbMulti.setEnabled(!b);
-				cbAutoCaps.setEnabled(!b);
-				cbAutoTile.setEnabled(!b);
-				txtCols.setEnabled(!b);
-				txtRows.setEnabled(!b);
-				txtWidth.setEnabled(!b);
-
-				btnClear.setEnabled(!b);
-				btnCreate.setEnabled(!b);
-				btnExit.setEnabled(!b);
-				btnVideo.setEnabled(!b);
-				jtCaps.setEnabled(!b);
 			}
 		});
+		t.setName("MultiPreviewCreateThread-" + t.getId());
+		t.start();
+	}
+
+	/**
+	 * Creates a list with all video-files in the specified folder
+	 * and subfolders if the recursive-flag is true
+	 * 
+	 * @param folder Folder containing the videos
+	 * @param recursive True if recursive, false otherwise
+	 * @return List of video files
+	 */
+	private List<File> createVideoList(File folder, boolean recursive) {
+		List<File> videoFiles = new ArrayList<>();
+		// TODO Maybe use newer API
+		File files[] = folder.listFiles(VIDEO_FILE_FILTER);
+		if (files != null) {
+			for (File file : files) {
+				videoFiles.add(file);
+			}
+		}
+
+		if (recursive) {
+			File subFolders[] = folder.listFiles(DIRECTORY_FILE_FILTER);
+			if (subFolders != null) {
+				for (File subFolder : subFolders) {
+					videoFiles.addAll(createVideoList(subFolder, recursive));
+				}
+			}
+		}
+
+		return videoFiles;
+	}
+
+	private void actionCapsSelect() {
+		File files[] = FileDialogUtil.showMultiFileOpenDialog(this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
+		if (files == null || files.length == 0) {
+			return;
+		}
+
+		Thread t = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					lockGUI();
+
+					pg.setMinimum(0);
+					pg.setMaximum(files.length - 1);
+					pg.setValue(0);
+					int i = 0;
+					for (File file : files) {
+						Image img = CapUtil.getCapPreview(file, CAPS_ROW_HEIGHT);
+						if (img != null) {
+							model.addRow(files[i].getAbsolutePath(), img);
+						}
+						i++;
+						updatePG(i);
+					}
+				} finally {
+					unlockGUI();
+				}
+			}
+		});
+		t.setName("AddCapsThread-" + t.getId());
+		t.start();
+	}
+
+	private void actionCapsUp() {
+		int row = jtCaps.getSelectedRow();
+		if (row > 0) {
+			model.moveRow(row, row, row - 1);
+			jtCaps.setRowSelectionInterval(row - 1, row - 1);
+		}
+	}
+
+	private void actionCapsDown() {
+		int row = jtCaps.getSelectedRow();
+		if (row != -1 && row < jtCaps.getRowCount() - 1) {
+			model.moveRow(row, row, row + 1);
+			jtCaps.setRowSelectionInterval(row + 1, row + 1);
+		}
+	}
+
+	private void actionCapsRemove() {
+		int row = jtCaps.getSelectedRow();
+		if (row == -1) {
+			return;
+		}
+		model.removeRow(jtCaps.convertRowIndexToModel(row));
+		if (row < jtCaps.getRowCount()) {
+			jtCaps.setRowSelectionInterval(row, row);
+		} else if ((row - 1) >= 0) {
+			jtCaps.setRowSelectionInterval(row - 1, row - 1);
+		}
 	}
 
 	private void updateCapsLabel() {
@@ -896,18 +1056,15 @@ public class VideoPreviewWindow extends JFrame implements ActionListener {
 		try {
 			cols = Integer.parseInt(txtCols.getText());
 		} catch (NumberFormatException nfe) {
-			cols = 1;
+			logger.error("Columns is not an integer: {}", txtCols.getText());
+			return;
 		}
 		int caps = jtCaps.getRowCount();
-
 		int mod = caps % cols;
-
 		int calculatedRows = caps / cols;
-
 		if (mod != 0) {
 			calculatedRows++;
 		}
-
 		lblCaps.setText("Caps (" + caps + ") | Caps % Cols = " + caps % cols + " | RxC = " + calculatedRows + "x" + cols);
 	}
 }

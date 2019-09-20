@@ -18,7 +18,6 @@ import java.util.regex.Pattern;
 
 import org.apache.velocity.tools.generic.DateTool;
 import org.apache.velocity.tools.generic.EscapeTool;
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
@@ -63,21 +62,9 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 	}
 
 	@Override
-	public void createPreviews(List<File> files, int width, boolean autoTile, int rows, int columns, boolean autoCaps, List<File> caps, File mainTemplate,
-			File footerTemplate) throws PreviewCreatorException {
-		for (File file : files) {
-			createPreview(file, width, autoTile, rows, columns, autoCaps, caps, mainTemplate, footerTemplate);
-		}
-	}
-
-	@Override
 	public void createPreview(File file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, List<File> caps, File mainTemplate, File footerTemplate) throws PreviewCreatorException {
 		try {
-			int infoTextPadding = 10;
-			int infoTextLinePadding = 20;
-			int fontFace = Core.FONT_HERSHEY_SIMPLEX;
-			double fontScale = 0.5;
-			int fontThickness = 1;
+			// TODO Auto Tile Mode
 
 			String infoText = generateInfoText(file, mainTemplate, null);
 			// TODO Handle image type
@@ -91,17 +78,6 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 			Mat footerTextImage = bufferedImageToMat(footerTextBufferedImage);
 			footerTextBufferedImage.flush();
 			int footerTextHeight = footerTextImage.height();
-
-			// TODO Remove if not needed anymore
-			// String[] infoTextLines = NEW_LINE_PATTERN.split(infoText);
-			// int infoTextHeight = 0;
-			// List<Size> infoTextLineSizes = new ArrayList<>();
-			// for (String infoTextLine : infoTextLines) {
-			// Size infoTextSize = Imgproc.getTextSize(infoTextLine, fontFace, fontScale, fontThickness, new int[] { 0 });
-			// infoTextLineSizes.add(infoTextSize);
-			// infoTextHeight += (int)infoTextSize.height;
-			// }
-			// infoTextHeight += (infoTextLines.length - 1) * infoTextLinePadding;
 
 			int capPadding = 10;
 			int infoHeight = infoTextHeight;
@@ -139,17 +115,7 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 						}
 						Mat frame = new Mat();
 						if (video.read(frame)) {
-							Mat resizedFrame;
-							double scaleFactor = (double)frameWidth / frame.width();
-							if (scaleFactor != 0.0d) {
-								int interpolation = frame.width() > frameWidth ? Imgproc.INTER_AREA : Imgproc.INTER_CUBIC;
-								resizedFrame = new Mat();
-								// Zero means it will be calculated using scale factor
-								Size sz = new Size(0, 0);
-								Imgproc.resize(frame, resizedFrame, sz, scaleFactor, scaleFactor, interpolation);
-							} else {
-								resizedFrame = frame;
-							}
+							Mat resizedFrame = resizeCap(frame, frameWidth);
 
 							if (frameHeight <= 0) {
 								frameHeight = resizedFrame.height();
@@ -170,13 +136,6 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 
 					videoPreviewImage = new Mat(height, width, frameType, backgroundColor);
 
-					// JFrame debugWindow = new JFrame();
-					// debugWindow.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-					// JLabel lblImage = new JLabel();
-					// debugWindow.add(lblImage);
-					// debugWindow.pack();
-					// debugWindow.setVisible(true);
-
 					int currentRow = 0;
 					int currentColumn = 0;
 					int capsStartHeight = infoHeight + capPadding;
@@ -190,8 +149,6 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 						frame.convertTo(convertedFrame, videoPreviewImage.type());
 						convertedFrame.copyTo(videoPreviewImage.rowRange(startRow, endRow).colRange(startCol, endCol));
 
-						// lblImage.setIcon(new ImageIcon(mat2BufferedImage(convertedFrame)));
-
 						currentColumn++;
 						if (currentColumn >= columns) {
 							currentColumn = 0;
@@ -204,26 +161,59 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 					}
 				}
 			} else {
-				// TODO non auto caps
+				// TODO Remove duplicate code (auto cap mode uses a lot of the same code)
+				int frameWidth = (width - (columns + 1) * capPadding) / columns;
 				int frameHeight = 0;
+				int frameType = CvType.CV_8UC3;
+				int frameChannels = 3;
+
+				List<Mat> frames = new ArrayList<>();
+				for (File capFile : caps) {
+					// TODO Handle read error
+					Mat cap = Imgcodecs.imread(capFile.getAbsolutePath());
+					Mat resizedCap = resizeCap(cap, frameWidth);
+
+					if (frameHeight <= 0) {
+						frameHeight = resizedCap.height();
+						frameType = resizedCap.type();
+						frameChannels = resizedCap.channels();
+					}
+
+					frames.add(resizedCap);
+				}
+
+				/*
+				 * Recalculate rows, because there might be more or less rows than configured, because of the count of caps
+				 */
+				rows = (int)Math.ceil((double)frames.size() / columns);
+
 				height += rows * (frameHeight + capPadding);
 
-				videoPreviewImage = new Mat(height, width, CvType.CV_8UC3, new Scalar(255, 255, 255));
-			}
+				// TODO Configurable
+				Scalar backgroundColor = createScalar(Color.WHITE, frameChannels);
 
-			// Scalar infoBackgroundColor = createScalar(Color.decode("#ffe0ae"), videoPreviewImage.channels());
-			// Scalar infoForegroundColor = createScalar(Color.BLACK, videoPreviewImage.channels());
-			//
-			// Mat infoImage = new Mat(infoHeight, width, videoPreviewImage.type(), infoBackgroundColor);
-			// double textHeightPoint = infoTextPadding;
-			// int i = 0;
-			// for (String infoTextLine : infoTextLines) {
-			// Size infoTextLineSize = infoTextLineSizes.get(i);
-			// textHeightPoint += infoTextLineSize.height;
-			// Imgproc.putText(infoImage, infoTextLine, new Point(infoTextPadding, textHeightPoint), fontFace, fontScale, infoForegroundColor, fontThickness);
-			// textHeightPoint += infoTextLinePadding;
-			// i++;
-			// }
+				videoPreviewImage = new Mat(height, width, frameType, backgroundColor);
+
+				int currentRow = 0;
+				int currentColumn = 0;
+				int capsStartHeight = infoHeight + capPadding;
+				for (Mat frame : frames) {
+					int startRow = capsStartHeight + currentRow * (frameHeight + capPadding);
+					int endRow = startRow + frame.height();
+					int startCol = currentColumn * (frameWidth + capPadding) + capPadding;
+					int endCol = startCol + frame.width();
+
+					Mat convertedFrame = new Mat();
+					frame.convertTo(convertedFrame, videoPreviewImage.type());
+					convertedFrame.copyTo(videoPreviewImage.rowRange(startRow, endRow).colRange(startCol, endCol));
+
+					currentColumn++;
+					if (currentColumn >= columns) {
+						currentColumn = 0;
+						currentRow++;
+					}
+				}
+			}
 
 			infoTextImage.copyTo(videoPreviewImage.rowRange(0, infoTextImage.height()).colRange(0, infoTextImage.width()));
 
@@ -234,15 +224,11 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 
 			videoPreviewImage.release();
 		} catch (Exception e) {
-			// TODO Message
-			throw new PreviewCreatorException(e);
+			throw new PreviewCreatorException("Could not create preview for file: " + file, e);
 		}
 	}
 
-	public BufferedImage mat2BufferedImage(Mat m) {
-		// Fastest code
-		// output can be assigned either to a BufferedImage or to an Image
-
+	private BufferedImage mat2BufferedImage(Mat m) {
 		int type = BufferedImage.TYPE_BYTE_GRAY;
 		if (m.channels() > 1) {
 			type = BufferedImage.TYPE_3BYTE_BGR;
@@ -256,7 +242,7 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 		return image;
 	}
 
-	public Mat bufferedImageToMat(BufferedImage img) {
+	private Mat bufferedImageToMat(BufferedImage img) {
 		if (img.getType() != BufferedImage.TYPE_3BYTE_BGR) {
 			throw new IllegalArgumentException("BufferedImage type is not supported: " + img.getType());
 		}
@@ -346,5 +332,19 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 		}
 		graphics.dispose();
 		return infoTextImage;
+	}
+
+	private Mat resizeCap(Mat cap, int frameWidth) {
+		double scaleFactor = (double)frameWidth / cap.width();
+		if (scaleFactor != 0.0d) {
+			int interpolation = cap.width() > frameWidth ? Imgproc.INTER_AREA : Imgproc.INTER_CUBIC;
+			Mat resizedCap = new Mat();
+			// Zero means it will be calculated using scale factor
+			Size sz = new Size(0, 0);
+			Imgproc.resize(cap, resizedCap, sz, scaleFactor, scaleFactor, interpolation);
+			return resizedCap;
+		} else {
+			return cap;
+		}
 	}
 }
