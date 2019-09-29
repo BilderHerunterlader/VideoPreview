@@ -4,9 +4,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
-
 import org.opencv.core.Core;
 import org.slf4j.LoggerFactory;
 
@@ -33,14 +30,6 @@ public class VideoPreview {
 			@Override
 			protected void main(String[] args) {
 				try {
-					try {
-						UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-					} catch (InstantiationException e) {
-					} catch (ClassNotFoundException e) {
-					} catch (UnsupportedLookAndFeelException e) {
-					} catch (IllegalAccessException e) {
-					}
-
 					if (Platform.isWindows()) {
 						File openCVPath = new File(ApplicationProperties.getProperty("ApplicationPath"), "OpenCV");
 						if (Platform.is64Bit()) {
