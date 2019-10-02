@@ -14,10 +14,12 @@ public interface PreviewCreator {
 	 * @param rows Rows (Only used when autoTile is false)
 	 * @param columns Columns (Only used when autoTile is false)
 	 * @param autoCaps True if caps should be created automatically, false otherwise
-	 * @param caps List of Caps (Only used when autoCaps is false)
+	 * @param selectCaps True if caps should be selected manually from video, false otherwise (Only used when autoCaps is false)
+	 * @param caps List of Caps (Only used when autoCaps is false and selectCaps is false)
 	 * @param mainTemplate Main Template
 	 * @param footerTemplate Footer Template
 	 * @throws PreviewCreatorException
 	 */
-	public void createPreview(File file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, List<File> caps, File mainTemplate, File footerTemplate) throws PreviewCreatorException;
+	public void createPreview(File file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, boolean selectCaps, List<File> caps, File mainTemplate,
+			File footerTemplate) throws PreviewCreatorException;
 }

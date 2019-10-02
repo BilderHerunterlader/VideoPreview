@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ch.supertomcat.supertomcatutils.application.ApplicationProperties;
+import ch.supertomcat.videopreview.gui.videoplayer.VideoPlayerWindow;
 import ch.supertomcat.videopreview.mediainfo.MediaInfoDataProvider;
 import ch.supertomcat.videopreview.templates.TemplateManager;
 
@@ -62,7 +63,8 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 	}
 
 	@Override
-	public void createPreview(File file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, List<File> caps, File mainTemplate, File footerTemplate) throws PreviewCreatorException {
+	public void createPreview(File file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, boolean selectCaps, List<File> caps, File mainTemplate,
+			File footerTemplate) throws PreviewCreatorException {
 		try {
 			// TODO Auto Tile Mode
 
@@ -161,56 +163,119 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 					}
 				}
 			} else {
-				// TODO Remove duplicate code (auto cap mode uses a lot of the same code)
-				int frameWidth = (width - (columns + 1) * capPadding) / columns;
-				int frameHeight = 0;
-				int frameType = CvType.CV_8UC3;
-				int frameChannels = 3;
+				if (selectCaps) {
+					int frameWidth = (width - (columns + 1) * capPadding) / columns;
+					int frameHeight = 0;
+					int frameType = CvType.CV_8UC3;
+					int frameChannels = 3;
+					VideoCapture video = null;
+					try {
+						video = new VideoCapture(file.getAbsolutePath());
+						if (!video.isOpened()) {
+							logger.error("Could not open file: {}", file);
+							// TODO Throw exception
+							return;
+						}
 
-				List<Mat> frames = new ArrayList<>();
-				for (File capFile : caps) {
-					// TODO Handle read error
-					Mat cap = Imgcodecs.imread(capFile.getAbsolutePath());
-					Mat resizedCap = resizeCap(cap, frameWidth);
+						VideoPlayerWindow videoPlayer = new VideoPlayerWindow(file.getName(), null, video, frameWidth);
+						videoPlayer.setModal(true);
+						videoPlayer.setVisible(true);
 
-					if (frameHeight <= 0) {
-						frameHeight = resizedCap.height();
-						frameType = resizedCap.type();
-						frameChannels = resizedCap.channels();
+						List<Mat> frames = videoPlayer.getCaptures();
+						if (!frames.isEmpty()) {
+							frameHeight = frames.get(0).height();
+							frameType = frames.get(0).type();
+							frameChannels = frames.get(0).channels();
+						}
+
+						/*
+						 * Recalculate rows, because there might be more or less rows than configured, because of the count of caps
+						 */
+						rows = (int)Math.ceil((double)frames.size() / columns);
+
+						height += rows * (frameHeight + capPadding);
+
+						// TODO Configurable
+						Scalar backgroundColor = createScalar(Color.WHITE, frameChannels);
+
+						videoPreviewImage = new Mat(height, width, frameType, backgroundColor);
+
+						int currentRow = 0;
+						int currentColumn = 0;
+						int capsStartHeight = infoHeight + capPadding;
+						for (Mat frame : frames) {
+							int startRow = capsStartHeight + currentRow * (frameHeight + capPadding);
+							int endRow = startRow + frame.height();
+							int startCol = currentColumn * (frameWidth + capPadding) + capPadding;
+							int endCol = startCol + frame.width();
+
+							Mat convertedFrame = new Mat();
+							frame.convertTo(convertedFrame, videoPreviewImage.type());
+							convertedFrame.copyTo(videoPreviewImage.rowRange(startRow, endRow).colRange(startCol, endCol));
+
+							currentColumn++;
+							if (currentColumn >= columns) {
+								currentColumn = 0;
+								currentRow++;
+							}
+						}
+					} finally {
+						if (video != null) {
+							video.release();
+						}
+					}
+				} else {
+					// TODO Remove duplicate code (auto cap mode uses a lot of the same code)
+					int frameWidth = (width - (columns + 1) * capPadding) / columns;
+					int frameHeight = 0;
+					int frameType = CvType.CV_8UC3;
+					int frameChannels = 3;
+
+					List<Mat> frames = new ArrayList<>();
+					for (File capFile : caps) {
+						// TODO Handle read error
+						Mat cap = Imgcodecs.imread(capFile.getAbsolutePath());
+						Mat resizedCap = resizeCap(cap, frameWidth);
+
+						if (frameHeight <= 0) {
+							frameHeight = resizedCap.height();
+							frameType = resizedCap.type();
+							frameChannels = resizedCap.channels();
+						}
+
+						frames.add(resizedCap);
 					}
 
-					frames.add(resizedCap);
-				}
+					/*
+					 * Recalculate rows, because there might be more or less rows than configured, because of the count of caps
+					 */
+					rows = (int)Math.ceil((double)frames.size() / columns);
 
-				/*
-				 * Recalculate rows, because there might be more or less rows than configured, because of the count of caps
-				 */
-				rows = (int)Math.ceil((double)frames.size() / columns);
+					height += rows * (frameHeight + capPadding);
 
-				height += rows * (frameHeight + capPadding);
+					// TODO Configurable
+					Scalar backgroundColor = createScalar(Color.WHITE, frameChannels);
 
-				// TODO Configurable
-				Scalar backgroundColor = createScalar(Color.WHITE, frameChannels);
+					videoPreviewImage = new Mat(height, width, frameType, backgroundColor);
 
-				videoPreviewImage = new Mat(height, width, frameType, backgroundColor);
+					int currentRow = 0;
+					int currentColumn = 0;
+					int capsStartHeight = infoHeight + capPadding;
+					for (Mat frame : frames) {
+						int startRow = capsStartHeight + currentRow * (frameHeight + capPadding);
+						int endRow = startRow + frame.height();
+						int startCol = currentColumn * (frameWidth + capPadding) + capPadding;
+						int endCol = startCol + frame.width();
 
-				int currentRow = 0;
-				int currentColumn = 0;
-				int capsStartHeight = infoHeight + capPadding;
-				for (Mat frame : frames) {
-					int startRow = capsStartHeight + currentRow * (frameHeight + capPadding);
-					int endRow = startRow + frame.height();
-					int startCol = currentColumn * (frameWidth + capPadding) + capPadding;
-					int endCol = startCol + frame.width();
+						Mat convertedFrame = new Mat();
+						frame.convertTo(convertedFrame, videoPreviewImage.type());
+						convertedFrame.copyTo(videoPreviewImage.rowRange(startRow, endRow).colRange(startCol, endCol));
 
-					Mat convertedFrame = new Mat();
-					frame.convertTo(convertedFrame, videoPreviewImage.type());
-					convertedFrame.copyTo(videoPreviewImage.rowRange(startRow, endRow).colRange(startCol, endCol));
-
-					currentColumn++;
-					if (currentColumn >= columns) {
-						currentColumn = 0;
-						currentRow++;
+						currentColumn++;
+						if (currentColumn >= columns) {
+							currentColumn = 0;
+							currentRow++;
+						}
 					}
 				}
 			}

@@ -179,6 +179,11 @@ public class VideoPreviewWindow extends JFrame {
 	private JCheckBox cbAutoCaps = new JCheckBox("Auto-Caps", true);
 
 	/**
+	 * Select Caps CheckBox
+	 */
+	private JCheckBox cbSelectCaps = new JCheckBox("Select Caps", true);
+
+	/**
 	 * Columns Label
 	 */
 	private JLabel lblCols = new JLabel("Cols:");
@@ -380,6 +385,7 @@ public class VideoPreviewWindow extends JFrame {
 
 		pnlCapsConfig.add(cbAutoTile);
 		pnlCapsConfig.add(cbAutoCaps);
+		pnlCapsConfig.add(cbSelectCaps);
 		pnlCapsConfig.add(lblCols);
 		pnlCapsConfig.add(txtCols);
 		pnlCapsConfig.add(lblRows);
@@ -399,13 +405,14 @@ public class VideoPreviewWindow extends JFrame {
 		cbAutoCaps.addChangeListener(new ChangeListener() {
 			@Override
 			public void stateChanged(ChangeEvent e) {
-				boolean selected = cbAutoCaps.isSelected();
-				jtCaps.setEnabled(!selected);
-				btnCapsDown.setEnabled(!selected);
-				btnCapsUp.setEnabled(!selected);
-				btnCapsRemove.setEnabled(!selected);
-				btnCapsSelect.setEnabled(!selected);
-				lblCaps.setEnabled(!selected);
+				checkTableEnabled();
+			}
+		});
+
+		cbSelectCaps.addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				checkTableEnabled();
 			}
 		});
 
@@ -537,6 +544,8 @@ public class VideoPreviewWindow extends JFrame {
 		btnCapsUp.addActionListener(e -> actionCapsUp());
 		btnCapsDown.addActionListener(e -> actionCapsDown());
 		btnCapsRemove.addActionListener(e -> actionCapsRemove());
+
+		checkTableEnabled();
 
 		FilenameComboBoxRenderer filenameComboBoxRenderer = new FilenameComboBoxRenderer();
 
@@ -810,18 +819,19 @@ public class VideoPreviewWindow extends JFrame {
 	 */
 	private void lockGUI(final boolean lock) {
 		Runnable lockGUIRunnable = () -> {
-			boolean bAutoCaps = !lock;
-			if (bAutoCaps && cbAutoCaps.isSelected()) {
-				bAutoCaps = false;
+			boolean bEnableTable = !lock;
+			if (bEnableTable && (cbAutoCaps.isSelected() || cbSelectCaps.isSelected())) {
+				bEnableTable = false;
 			}
-			btnCapsSelect.setEnabled(bAutoCaps);
-			btnCapsRemove.setEnabled(bAutoCaps);
-			btnCapsDown.setEnabled(bAutoCaps);
-			btnCapsUp.setEnabled(bAutoCaps);
+			btnCapsSelect.setEnabled(bEnableTable);
+			btnCapsRemove.setEnabled(bEnableTable);
+			btnCapsDown.setEnabled(bEnableTable);
+			btnCapsUp.setEnabled(bEnableTable);
 
 			rbSingle.setEnabled(!lock);
 			rbMulti.setEnabled(!lock);
 			cbAutoCaps.setEnabled(!lock);
+			cbSelectCaps.setEnabled(!lock);
 			cbAutoTile.setEnabled(!lock);
 			txtCols.setEnabled(!lock);
 			txtRows.setEnabled(!lock);
@@ -838,6 +848,16 @@ public class VideoPreviewWindow extends JFrame {
 		} else {
 			EventQueue.invokeLater(lockGUIRunnable);
 		}
+	}
+
+	private void checkTableEnabled() {
+		boolean tableEnabled = !cbAutoCaps.isSelected() && !cbSelectCaps.isSelected();
+		jtCaps.setEnabled(tableEnabled);
+		btnCapsDown.setEnabled(tableEnabled);
+		btnCapsUp.setEnabled(tableEnabled);
+		btnCapsRemove.setEnabled(tableEnabled);
+		btnCapsSelect.setEnabled(tableEnabled);
+		lblCaps.setEnabled(tableEnabled);
 	}
 
 	private void actionCreate() {
@@ -864,7 +884,7 @@ public class VideoPreviewWindow extends JFrame {
 			}
 		}
 
-		if (!cbAutoCaps.isSelected() && jtCaps.getRowCount() == 0) {
+		if (!cbAutoCaps.isSelected() && !cbSelectCaps.isSelected() && jtCaps.getRowCount() == 0) {
 			int choice = JOptionPane.showConfirmDialog(this, "No Caps in Cap-Table, abort?", "No Caps Found", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
 			if (choice == JOptionPane.YES_OPTION) {
 				updateOPG("No Caps in Cap-Table");
@@ -910,6 +930,7 @@ public class VideoPreviewWindow extends JFrame {
 
 		boolean autoTile = cbAutoTile.isSelected();
 		boolean autoCaps = cbAutoCaps.isSelected();
+		boolean selectCaps = cbSelectCaps.isSelected();
 		boolean recursive = cbRecursive.isSelected();
 
 		List<File> capFiles = new ArrayList<>();
@@ -943,7 +964,7 @@ public class VideoPreviewWindow extends JFrame {
 					for (File videoFile : videoFiles) {
 						updateOPG("Create preview for file: " + videoFile.getName());
 						try {
-							previewCreator.createPreview(videoFile, width, autoTile, rows, cols, autoCaps, capFiles, selectedMainTemplate, selectedFooterTemplate);
+							previewCreator.createPreview(videoFile, width, autoTile, rows, cols, autoCaps, selectCaps, capFiles, selectedMainTemplate, selectedFooterTemplate);
 						} catch (PreviewCreatorException e) {
 							logger.error("Could not create preview for file: {}", videoFile.getAbsolutePath(), e);
 						}
