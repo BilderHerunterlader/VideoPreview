@@ -101,7 +101,7 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 
 					int capCount = rows * columns;
 
-					int frameCount = (int)video.get(Videoio.CV_CAP_PROP_FRAME_COUNT);
+					int frameCount = (int)video.get(Videoio.CAP_PROP_FRAME_COUNT);
 					if (frameCount <= 0) {
 						// TODO Handle this case somehow
 						logger.error("Could not get frame count from video");
@@ -112,7 +112,7 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 					for (int i = 0; i < capCount; i++) {
 						// Seek to position
 						int framePosition = i * posIncrease;
-						if (!video.set(Videoio.CV_CAP_PROP_POS_FRAMES, framePosition)) {
+						if (!video.set(Videoio.CAP_PROP_POS_FRAMES, framePosition)) {
 							logger.error("Could not seek to frame position: {}", framePosition);
 						}
 						Mat frame = new Mat();

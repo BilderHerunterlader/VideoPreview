@@ -104,7 +104,7 @@ public class VideoPlayerWindow extends JDialog {
 		this.captureFrameWidth = captureFrameWidth;
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
-		int frameCount = (int)video.get(Videoio.CV_CAP_PROP_FRAME_COUNT);
+		int frameCount = (int)video.get(Videoio.CAP_PROP_FRAME_COUNT);
 		if (frameCount <= 0) {
 			// TODO Handle this case somehow
 			logger.error("Could not get frame count from video");
@@ -220,7 +220,7 @@ public class VideoPlayerWindow extends JDialog {
 			return;
 		}
 
-		double fps = video.get(Videoio.CV_CAP_PROP_FPS);
+		double fps = video.get(Videoio.CAP_PROP_FPS);
 		if (fps <= 0.0d) {
 			// TODO Handle this case somehow
 			logger.error("Could not get fps from video");
@@ -320,7 +320,7 @@ public class VideoPlayerWindow extends JDialog {
 	 * Skip Forward
 	 */
 	private void skipForward() {
-		int frameCount = (int)video.get(Videoio.CV_CAP_PROP_FRAME_COUNT);
+		int frameCount = (int)video.get(Videoio.CAP_PROP_FRAME_COUNT);
 		if (frameCount > 0) {
 			if (seek(frameCount - 2)) {
 				if (displayFrame()) {
@@ -331,7 +331,7 @@ public class VideoPlayerWindow extends JDialog {
 	}
 
 	private boolean seek(int framePosition) {
-		if (!video.set(Videoio.CV_CAP_PROP_POS_FRAMES, framePosition)) {
+		if (!video.set(Videoio.CAP_PROP_POS_FRAMES, framePosition)) {
 			logger.error("Could not seek to frame position: {}", framePosition);
 			return false;
 		}

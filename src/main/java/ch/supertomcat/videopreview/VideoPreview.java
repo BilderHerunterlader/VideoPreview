@@ -33,11 +33,11 @@ public class VideoPreview {
 					if (Platform.isWindows()) {
 						File openCVPath = new File(ApplicationProperties.getProperty("ApplicationPath"), "OpenCV");
 						if (Platform.is64Bit()) {
-							System.load(new File(openCVPath, "java/x64/opencv_java347.dll").getAbsolutePath());
-							System.load(new File(openCVPath, "bin/opencv_ffmpeg347_64.dll").getAbsolutePath());
+							System.load(new File(openCVPath, "java/x64/opencv_java451.dll").getAbsolutePath());
+							System.load(new File(openCVPath, "bin/opencv_videoio_ffmpeg451_64.dll").getAbsolutePath());
 						} else {
-							System.load(new File(openCVPath, "java/x86/opencv_java347.dll").getAbsolutePath());
-							System.load(new File(openCVPath, "bin/opencv_ffmpeg347.dll").getAbsolutePath());
+							System.load(new File(openCVPath, "java/x86/opencv_java451.dll").getAbsolutePath());
+							System.load(new File(openCVPath, "bin/opencv_videoio_ffmpeg451.dll").getAbsolutePath());
 						}
 					} else {
 						System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
