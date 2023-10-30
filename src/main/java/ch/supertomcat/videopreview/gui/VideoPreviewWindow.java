@@ -344,7 +344,6 @@ public class VideoPreviewWindow extends JFrame {
 	 * @param settingsManager Settings Manager
 	 * @param templateManager Template Manager
 	 */
-	@SuppressWarnings("unchecked")
 	public VideoPreviewWindow(SettingsManager settingsManager, TemplateManager templateManager) {
 		super("VideoPreview");
 		this.settingsManager = settingsManager;
