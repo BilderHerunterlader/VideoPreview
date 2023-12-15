@@ -15,6 +15,7 @@ import com.sun.jna.WString;
 /**
  * MediaInfo Implementation
  */
+@SuppressWarnings("resource")
 public class MediaInfo implements AutoCloseable {
 	/**
 	 * Media Info Library Name for loading library
