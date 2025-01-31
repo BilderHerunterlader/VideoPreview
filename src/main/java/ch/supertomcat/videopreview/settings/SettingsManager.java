@@ -9,7 +9,6 @@ import java.util.Map;
 
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
-import javax.xml.bind.JAXBException;
 
 import org.apache.logging.log4j.Level;
 import org.xml.sax.SAXException;
@@ -22,6 +21,7 @@ import ch.supertomcat.videopreview.settingsconfig.LookAndFeelSetting;
 import ch.supertomcat.videopreview.settingsconfig.ObjectFactory;
 import ch.supertomcat.videopreview.settingsconfig.Settings;
 import ch.supertomcat.videopreview.util.VPUtil;
+import jakarta.xml.bind.JAXBException;
 
 /**
  * Class which handels the settings

@@ -16,7 +16,6 @@ public class VPUtil {
 	 * @param level Level
 	 */
 	public static void changeLog4JRootLoggerLevel(Level level) {
-		@SuppressWarnings("resource")
 		LoggerContext loggerContext = (LoggerContext)LogManager.getContext(false);
 		Configuration config = loggerContext.getConfiguration();
 		LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
