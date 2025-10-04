@@ -126,7 +126,7 @@ public class CapDropTargetListener implements DropTargetListener {
 					}
 				}
 			});
-			t.setName("DragAndDropCapsThread-" + t.getId());
+			t.setName("DragAndDropCapsThread-" + t.threadId());
 			t.start();
 
 			dtde.dropComplete(true);

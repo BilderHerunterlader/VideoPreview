@@ -229,7 +229,7 @@ public class VideoPlayerWindow extends JDialog {
 
 		videoPlayerRunnable = new VideoPlayerRunnable(fps);
 		videoPlayerThread = new Thread(videoPlayerRunnable);
-		videoPlayerThread.setName("Video-Player-Thread" + videoPlayerThread.getId());
+		videoPlayerThread.setName("Video-Player-Thread" + videoPlayerThread.threadId());
 		videoPlayerThread.start();
 	}
 

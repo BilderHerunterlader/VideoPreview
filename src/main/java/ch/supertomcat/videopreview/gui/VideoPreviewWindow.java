@@ -975,7 +975,7 @@ public class VideoPreviewWindow extends JFrame {
 				}
 			}
 		});
-		t.setName("MultiPreviewCreateThread-" + t.getId());
+		t.setName("MultiPreviewCreateThread-" + t.threadId());
 		t.start();
 	}
 
@@ -1038,7 +1038,7 @@ public class VideoPreviewWindow extends JFrame {
 				}
 			}
 		});
-		t.setName("AddCapsThread-" + t.getId());
+		t.setName("AddCapsThread-" + t.threadId());
 		t.start();
 	}
 
