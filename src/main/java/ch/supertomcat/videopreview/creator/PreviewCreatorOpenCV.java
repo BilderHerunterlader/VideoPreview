@@ -29,6 +29,7 @@ import org.opencv.videoio.Videoio;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.supertomcat.supertomcatutils.application.ApplicationMain;
 import ch.supertomcat.supertomcatutils.application.ApplicationProperties;
 import ch.supertomcat.videopreview.gui.videoplayer.VideoPlayerWindow;
 import ch.supertomcat.videopreview.mediainfo.MediaInfoDataProvider;
@@ -325,9 +326,9 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 			vars.put("mediaInfo", mediaInfoDataProvider);
 			vars.put("escapeTool", new EscapeTool());
 			vars.put("dateTool", new DateTool());
-			vars.put("applicationName", ApplicationProperties.getProperty("ApplicationName"));
-			vars.put("applicationShortName", ApplicationProperties.getProperty("ApplicationShortName"));
-			vars.put("applicationVersion", ApplicationProperties.getProperty("ApplicationVersion"));
+			vars.put("applicationName", ApplicationProperties.getProperty(ApplicationMain.APPLICATION_NAME));
+			vars.put("applicationShortName", ApplicationProperties.getProperty(ApplicationMain.APPLICATION_SHORT_NAME));
+			vars.put("applicationVersion", ApplicationProperties.getProperty(ApplicationMain.APPLICATION_VERSION));
 
 			long start = System.nanoTime();
 			String templateName;
@@ -349,8 +350,6 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 			e.printStackTrace(pw);
 			String stackTrace = sw.toString();
 			return stackTrace;
-		} finally {
-			System.gc();
 		}
 	}
 

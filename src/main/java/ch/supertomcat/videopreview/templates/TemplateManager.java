@@ -19,6 +19,7 @@ import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
+import ch.supertomcat.supertomcatutils.application.ApplicationMain;
 import ch.supertomcat.supertomcatutils.application.ApplicationProperties;
 
 /**
@@ -71,7 +72,7 @@ public class TemplateManager {
 	 * @param folder Templates Folder or null for default folder
 	 */
 	public TemplateManager(File folder) {
-		this(folder != null ? folder : new File(ApplicationProperties.getProperty("ApplicationPath"), "templates/"), false);
+		this(folder != null ? folder : new File(ApplicationProperties.getProperty(ApplicationMain.APPLICATION_PATH), "templates/"), false);
 	}
 
 	/**

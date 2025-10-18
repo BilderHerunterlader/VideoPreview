@@ -1,7 +1,8 @@
 package ch.supertomcat.videopreview.settings;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -114,15 +115,15 @@ public class SettingsManager extends SettingsManagerBase<Settings, VPSettingsLis
 	 * @return True if successful, false otherwise
 	 */
 	public synchronized boolean readSettings() {
-		if (settingsFile.exists()) {
-			logger.info("Loading Settings File: {}", settingsFile.getAbsolutePath());
+		if (Files.exists(settingsFile)) {
+			logger.info("Loading Settings File: {}", settingsFile);
 			try {
 				this.settings = loadUserSettingsFile();
 				applyLogLevel();
 				settingsChanged();
 				return true;
 			} catch (Exception e) {
-				logger.error("Could not read settings file: {}", settingsFile.getAbsolutePath(), e);
+				logger.error("Could not read settings file: {}", settingsFile, e);
 				return false;
 			}
 		} else {
@@ -146,7 +147,7 @@ public class SettingsManager extends SettingsManagerBase<Settings, VPSettingsLis
 	 * @return True if successful, false otherwise
 	 */
 	public synchronized boolean writeSettings(boolean noShutdown) {
-		try (FileOutputStream out = new FileOutputStream(settingsFile)) {
+		try (OutputStream out = Files.newOutputStream(settingsFile)) {
 			writeSettingsFile(this.settings, out, false);
 			settingsChanged();
 			if (noShutdown) {
@@ -154,7 +155,7 @@ public class SettingsManager extends SettingsManagerBase<Settings, VPSettingsLis
 			}
 			return true;
 		} catch (IOException | SAXException | JAXBException e) {
-			logger.error("Could not write settings file: {}", settingsFile.getAbsolutePath(), e);
+			logger.error("Could not write settings file: {}", settingsFile, e);
 			return false;
 		}
 	}

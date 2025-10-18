@@ -31,7 +31,7 @@ public class VideoPreview {
 			protected void main(String[] args) {
 				try {
 					if (Platform.isWindows()) {
-						File openCVPath = new File(ApplicationProperties.getProperty("ApplicationPath"), "OpenCV");
+						File openCVPath = new File(ApplicationProperties.getProperty(ApplicationMain.APPLICATION_PATH), "OpenCV");
 						if (Platform.is64Bit()) {
 							System.load(new File(openCVPath, "java/x64/opencv_java451.dll").getAbsolutePath());
 							System.load(new File(openCVPath, "bin/opencv_videoio_ffmpeg451_64.dll").getAbsolutePath());
@@ -43,7 +43,7 @@ public class VideoPreview {
 						System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 					}
 
-					SettingsManager settingsManager = new SettingsManager(ApplicationProperties.getProperty("SettingsPath"), "settings.xml");
+					SettingsManager settingsManager = new SettingsManager(ApplicationProperties.getProperty(ApplicationMain.SETTINGS_PATH), "settings.xml");
 					// Read the settings from settings file
 					settingsManager.readSettings();
 
