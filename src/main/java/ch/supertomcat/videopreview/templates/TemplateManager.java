@@ -1,13 +1,17 @@
 package ch.supertomcat.videopreview.templates;
 
-import java.io.File;
-import java.io.FileFilter;
+import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
@@ -18,6 +22,8 @@ import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import ch.supertomcat.supertomcatutils.application.ApplicationMain;
 import ch.supertomcat.supertomcatutils.application.ApplicationProperties;
@@ -26,6 +32,8 @@ import ch.supertomcat.supertomcatutils.application.ApplicationProperties;
  * Manager for templates
  */
 public class TemplateManager {
+	private Logger logger = LoggerFactory.getLogger(getClass());
+
 	/**
 	 * Velocity Engine
 	 */
@@ -34,28 +42,22 @@ public class TemplateManager {
 	/**
 	 * Folder
 	 */
-	private final File folder;
+	private final Path folder;
 
 	/**
 	 * Folder for Includes
 	 */
-	private final File includesFolder;
+	private final Path includesFolder;
 
 	/**
 	 * Folder for Footers
 	 */
-	private final File footersFolder;
+	private final Path footersFolder;
 
 	/**
 	 * File Filter
 	 */
-	private FileFilter fileFilter = new FileFilter() {
-
-		@Override
-		public boolean accept(File pathname) {
-			return pathname.isFile() && pathname.getName().endsWith(".vm");
-		}
-	};
+	private Predicate<Path> fileFilter = x -> Files.isRegularFile(x) && x.getFileName().toString().endsWith(".vm");
 
 	/**
 	 * Constructor
@@ -71,8 +73,8 @@ public class TemplateManager {
 	 * 
 	 * @param folder Templates Folder or null for default folder
 	 */
-	public TemplateManager(File folder) {
-		this(folder != null ? folder : new File(ApplicationProperties.getProperty(ApplicationMain.APPLICATION_PATH), "templates/"), false);
+	public TemplateManager(Path folder) {
+		this(folder != null ? folder : Paths.get(ApplicationProperties.getProperty(ApplicationMain.APPLICATION_PATH), "templates/"), false);
 	}
 
 	/**
@@ -81,8 +83,8 @@ public class TemplateManager {
 	 * @param folder Templates Folder or null
 	 * @param classPath True if templates from class path needs to be loaded, false otherwise
 	 */
-	public TemplateManager(File folder, boolean classPath) {
-		if (folder == null && classPath == false) {
+	public TemplateManager(Path folder, boolean classPath) {
+		if (folder == null && !classPath) {
 			throw new IllegalArgumentException("folder is null and classPath is false. One of them needs to be enabled");
 		}
 
@@ -91,8 +93,8 @@ public class TemplateManager {
 			this.includesFolder = null;
 			this.footersFolder = null;
 		} else {
-			this.includesFolder = new File(folder, "includes");
-			this.footersFolder = new File(folder, "footers");
+			this.includesFolder = folder.resolve("includes");
+			this.footersFolder = folder.resolve("footers");
 		}
 
 		StringJoiner sjResourceLoaders = new StringJoiner(",");
@@ -105,7 +107,7 @@ public class TemplateManager {
 
 		if (folder != null) {
 			sjResourceLoaders.add("file");
-			velocityEngine.setProperty(RuntimeConstants.FILE_RESOURCE_LOADER_PATH, folder.getAbsolutePath());
+			velocityEngine.setProperty(RuntimeConstants.FILE_RESOURCE_LOADER_PATH, folder.toAbsolutePath().toString());
 			velocityEngine.setProperty(RuntimeConstants.FILE_RESOURCE_LOADER_CACHE, "true");
 		}
 
@@ -121,8 +123,8 @@ public class TemplateManager {
 	 * @param footers True if footers should be returned also, false otherwise
 	 * @return Template Files or an empty list if only resources are used
 	 */
-	public List<File> getTemplateFiles(boolean includes, boolean footers) {
-		List<File> templateFiles = new ArrayList<>();
+	public List<Path> getTemplateFiles(boolean includes, boolean footers) {
+		List<Path> templateFiles = new ArrayList<>();
 		if (folder != null) {
 			templateFiles.addAll(getTemplateFiles(folder));
 			if (includes) {
@@ -140,7 +142,7 @@ public class TemplateManager {
 	 * 
 	 * @return Template Files or an empty list if only resources are used
 	 */
-	public List<File> getMainTemplateFiles() {
+	public List<Path> getMainTemplateFiles() {
 		return getTemplateFiles(folder);
 	}
 
@@ -149,7 +151,7 @@ public class TemplateManager {
 	 * 
 	 * @return Template Files or an empty list if only resources are used
 	 */
-	public List<File> getIncludeTemplateFiles() {
+	public List<Path> getIncludeTemplateFiles() {
 		return getTemplateFiles(includesFolder);
 	}
 
@@ -158,7 +160,7 @@ public class TemplateManager {
 	 * 
 	 * @return Template Files or an empty list if only resources are used
 	 */
-	public List<File> getFooterTemplateFiles() {
+	public List<Path> getFooterTemplateFiles() {
 		return getTemplateFiles(footersFolder);
 	}
 
@@ -168,17 +170,17 @@ public class TemplateManager {
 	 * @param templateFolder Folder
 	 * @return Template Files
 	 */
-	private List<File> getTemplateFiles(File templateFolder) {
+	private List<Path> getTemplateFiles(Path templateFolder) {
 		if (templateFolder == null) {
 			return new ArrayList<>();
 		}
 
-		File[] foundFiles = templateFolder.listFiles(fileFilter);
-		if (foundFiles == null) {
-			return new ArrayList<>();
+		try (Stream<Path> stream = Files.list(templateFolder)) {
+			return stream.filter(fileFilter).toList();
+		} catch (IOException e) {
+			logger.error("Could not list templates: {}", templateFolder, e);
+			return Collections.emptyList();
 		}
-
-		return Arrays.asList(foundFiles);
 	}
 
 	/**

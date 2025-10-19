@@ -8,11 +8,17 @@ import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.File;
-import java.io.FileFilter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -31,6 +37,7 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpringLayout;
+import javax.swing.WindowConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -71,22 +78,7 @@ public class VideoPreviewWindow extends JFrame {
 	/**
 	 * FileFilter for video files
 	 */
-	private static final FileFilter VIDEO_FILE_FILTER = new FileFilter() {
-		@Override
-		public boolean accept(File pathname) {
-			return pathname.isFile() && VIDEO_FILE_PATTERN.matcher(pathname.getName()).matches();
-		}
-	};
-
-	/**
-	 * FileFilter for directories
-	 */
-	private static final FileFilter DIRECTORY_FILE_FILTER = new FileFilter() {
-		@Override
-		public boolean accept(File pathname) {
-			return pathname.isDirectory();
-		}
-	};
+	private static final Predicate<Path> VIDEO_FILE_FILTER = x -> Files.isRegularFile(x) && VIDEO_FILE_PATTERN.matcher(x.getFileName().toString()).matches();
 
 	/**
 	 * Caps Row Height
@@ -266,7 +258,7 @@ public class VideoPreviewWindow extends JFrame {
 	/**
 	 * Main Template ComboBox
 	 */
-	private JComboBox<File> cmbMainTemplate = new JComboBox<>();
+	private JComboBox<Path> cmbMainTemplate = new JComboBox<>();
 
 	/**
 	 * Footer Template Label
@@ -276,7 +268,7 @@ public class VideoPreviewWindow extends JFrame {
 	/**
 	 * Footer Template ComboBox
 	 */
-	private JComboBox<File> cmbFooterTemplate = new JComboBox<>();
+	private JComboBox<Path> cmbFooterTemplate = new JComboBox<>();
 
 	/**
 	 * Overall Progress Label
@@ -349,7 +341,7 @@ public class VideoPreviewWindow extends JFrame {
 		this.settingsManager = settingsManager;
 		this.previewCreator = new PreviewCreatorOpenCV(templateManager);
 
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
 		cbRecursive.setEnabled(rbMulti.isSelected());
 		rbMulti.addItemListener(new ItemListener() {
@@ -551,10 +543,10 @@ public class VideoPreviewWindow extends JFrame {
 		// Main Template
 		cmbMainTemplate.setRenderer(filenameComboBoxRenderer);
 		String strSelectedMainTemplate = settingsManager.getGUISettings().getSelectedMainTemplate();
-		File selectedMainTemplate = null;
-		for (File file : templateManager.getMainTemplateFiles()) {
+		Path selectedMainTemplate = null;
+		for (Path file : templateManager.getMainTemplateFiles()) {
 			cmbMainTemplate.addItem(file);
-			if (strSelectedMainTemplate != null && file.getName().equals(strSelectedMainTemplate)) {
+			if (strSelectedMainTemplate != null && file.getFileName().toString().equals(strSelectedMainTemplate)) {
 				selectedMainTemplate = file;
 			}
 		}
@@ -566,9 +558,9 @@ public class VideoPreviewWindow extends JFrame {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange() == ItemEvent.SELECTED) {
-					File selectedMainTemplate = (File)e.getItem();
+					Path selectedMainTemplate = (Path)e.getItem();
 					if (selectedMainTemplate != null) {
-						settingsManager.getGUISettings().setSelectedMainTemplate(selectedMainTemplate.getName());
+						settingsManager.getGUISettings().setSelectedMainTemplate(selectedMainTemplate.getFileName().toString());
 						settingsManager.writeSettings(true);
 					}
 				}
@@ -578,10 +570,10 @@ public class VideoPreviewWindow extends JFrame {
 		// Footer Template
 		cmbFooterTemplate.setRenderer(filenameComboBoxRenderer);
 		String strSelectedFooterTemplate = settingsManager.getGUISettings().getSelectedFooterTemplate();
-		File selectedFooterTemplate = null;
-		for (File file : templateManager.getFooterTemplateFiles()) {
+		Path selectedFooterTemplate = null;
+		for (Path file : templateManager.getFooterTemplateFiles()) {
 			cmbFooterTemplate.addItem(file);
-			if (strSelectedFooterTemplate != null && file.getName().equals(strSelectedFooterTemplate)) {
+			if (strSelectedFooterTemplate != null && file.getFileName().toString().equals(strSelectedFooterTemplate)) {
 				selectedFooterTemplate = file;
 			}
 		}
@@ -593,9 +585,9 @@ public class VideoPreviewWindow extends JFrame {
 			@Override
 			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange() == ItemEvent.SELECTED) {
-					File selectedFooterTemplate = (File)e.getItem();
+					Path selectedFooterTemplate = (Path)e.getItem();
 					if (selectedFooterTemplate != null) {
-						settingsManager.getGUISettings().setSelectedFooterTemplate(selectedFooterTemplate.getName());
+						settingsManager.getGUISettings().setSelectedFooterTemplate(selectedFooterTemplate.getFileName().toString());
 						settingsManager.writeSettings(true);
 					}
 				}
@@ -865,19 +857,19 @@ public class VideoPreviewWindow extends JFrame {
 			return;
 		}
 
-		File fVideo = new File(txtVideo.getText());
-		if (!fVideo.exists()) {
+		Path fVideo = Paths.get(txtVideo.getText());
+		if (!Files.exists(fVideo)) {
 			updateOPG("Video or Folder does not exist");
 			return;
 		}
 
 		if (rbSingle.isSelected()) {
-			if (!fVideo.isFile()) {
+			if (!Files.isRegularFile(fVideo)) {
 				updateOPG("Selected Video ist not a file");
 				return;
 			}
 		} else {
-			if (!fVideo.isDirectory()) {
+			if (!Files.isDirectory(fVideo)) {
 				updateOPG("Selected path is not a directory");
 				return;
 			}
@@ -891,13 +883,13 @@ public class VideoPreviewWindow extends JFrame {
 			}
 		}
 
-		File selectedMainTemplate = (File)cmbMainTemplate.getSelectedItem();
+		Path selectedMainTemplate = (Path)cmbMainTemplate.getSelectedItem();
 		if (selectedMainTemplate == null) {
 			updateOPG("No template selected");
 			return;
 		}
 
-		File selectedFooterTemplate = (File)cmbFooterTemplate.getSelectedItem();
+		Path selectedFooterTemplate = (Path)cmbFooterTemplate.getSelectedItem();
 		if (selectedFooterTemplate == null) {
 			updateOPG("No footer template selected");
 			return;
@@ -932,10 +924,10 @@ public class VideoPreviewWindow extends JFrame {
 		boolean selectCaps = cbSelectCaps.isSelected();
 		boolean recursive = cbRecursive.isSelected();
 
-		List<File> capFiles = new ArrayList<>();
+		List<Path> capFiles = new ArrayList<>();
 		for (int i = 0; i < jtCaps.getRowCount(); i++) {
 			String capFilePath = (String)model.getValueAt(jtCaps.convertRowIndexToModel(i), capFileColumnModelIndex);
-			capFiles.add(new File(capFilePath));
+			capFiles.add(Paths.get(capFilePath));
 		}
 
 		Thread t = new Thread(new Runnable() {
@@ -944,7 +936,7 @@ public class VideoPreviewWindow extends JFrame {
 				try {
 					lockGUI();
 
-					List<File> videoFiles;
+					List<Path> videoFiles;
 					if (rbSingle.isSelected()) {
 						videoFiles = Arrays.asList(fVideo);
 					} else {
@@ -960,12 +952,12 @@ public class VideoPreviewWindow extends JFrame {
 					updateOPG(0);
 
 					int i = 0;
-					for (File videoFile : videoFiles) {
-						updateOPG("Create preview for file: " + videoFile.getName());
+					for (Path videoFile : videoFiles) {
+						updateOPG("Create preview for file: " + videoFile.getFileName());
 						try {
 							previewCreator.createPreview(videoFile, width, autoTile, rows, cols, autoCaps, selectCaps, capFiles, selectedMainTemplate, selectedFooterTemplate);
 						} catch (PreviewCreatorException e) {
-							logger.error("Could not create preview for file: {}", videoFile.getAbsolutePath(), e);
+							logger.error("Could not create preview for file: {}", videoFile, e);
 						}
 						i++;
 						updateOPG(i);
@@ -987,30 +979,18 @@ public class VideoPreviewWindow extends JFrame {
 	 * @param recursive True if recursive, false otherwise
 	 * @return List of video files
 	 */
-	private List<File> createVideoList(File folder, boolean recursive) {
-		List<File> videoFiles = new ArrayList<>();
-		// TODO Maybe use newer API
-		File files[] = folder.listFiles(VIDEO_FILE_FILTER);
-		if (files != null) {
-			for (File file : files) {
-				videoFiles.add(file);
-			}
+	private List<Path> createVideoList(Path folder, boolean recursive) {
+		try (@SuppressWarnings("resource")
+		Stream<Path> stream = recursive ? Files.walk(folder) : Files.list(folder)) {
+			return stream.filter(VIDEO_FILE_FILTER).toList();
+		} catch (IOException e) {
+			logger.error("Could not list files: {}", folder, e);
+			return Collections.emptyList();
 		}
-
-		if (recursive) {
-			File subFolders[] = folder.listFiles(DIRECTORY_FILE_FILTER);
-			if (subFolders != null) {
-				for (File subFolder : subFolders) {
-					videoFiles.addAll(createVideoList(subFolder, recursive));
-				}
-			}
-		}
-
-		return videoFiles;
 	}
 
 	private void actionCapsSelect() {
-		File files[] = FileDialogUtil.showMultiFileOpenDialog(this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
+		File[] files = FileDialogUtil.showMultiFileOpenDialog(this, settingsManager.getDirectorySettings().getLastUsedPath(), null);
 		if (files == null || files.length == 0) {
 			return;
 		}
@@ -1026,7 +1006,7 @@ public class VideoPreviewWindow extends JFrame {
 					pg.setValue(0);
 					int i = 0;
 					for (File file : files) {
-						Image img = CapUtil.getCapPreview(file, CAPS_ROW_HEIGHT);
+						Image img = CapUtil.getCapPreview(file.toPath(), CAPS_ROW_HEIGHT);
 						if (img != null) {
 							model.addRow(files[i].getAbsolutePath(), img);
 						}

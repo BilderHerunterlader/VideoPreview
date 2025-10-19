@@ -9,7 +9,7 @@ Velocity Engine is used to create the info text, which is displayed on the previ
 This allows customized information to be displayed, by creating your own templates.
 
 # Compatibility
-The Program was so far only tested on Windows 7 and Windows 10.
+The Program was so far only tested on Windows 7, Windows 10 and Windows 11.
 The Program might not work on Linux, Mac or other operating systems
 
 # Install MediaInfo Libraries under Windows
@@ -20,22 +20,23 @@ MediaInfox64.dll
 # Install OpenCV Libraries under Windows
 Download OpenCV for Windows from https://opencv.org/releases/ and extract it.
 Create the following folder structure and copy files from the extracted OpenCV:
-+-- OpenCV
-|   +-- bin
-|   |   +-- opencv_videoio_ffmpeg451_64.dll
-|   +-- etc
-|   |   +-- haarcascades
-|   |   |   +-- *.*
-|   |   +-- lbpcascades
-|   |   |   +-- *.*
-|   |   +-- licenses
-|   |   |   +-- *.*
-|   +-- java
-|   |   +-- opencv-451.jar
-|   |   +-- x64
-|   |   |   +-- opencv_java451.dll
-|   |   +-- x86
-|   |   |   +-- opencv_java451.dll
+
+    +-- OpenCV
+    |   +-- bin
+    |   |   +-- opencv_videoio_ffmpeg451_64.dll
+    |   +-- etc
+    |   |   +-- haarcascades
+    |   |   |   +-- *.*
+    |   |   +-- lbpcascades
+    |   |   |   +-- *.*
+    |   |   +-- licenses
+    |   |   |   +-- *.*
+    |   +-- java
+    |   |   +-- opencv-451.jar
+    |   |   +-- x64
+    |   |   |   +-- opencv_java451.dll
+    |   |   +-- x86
+    |   |   |   +-- opencv_java451.dll
 
 # Requirements
 Java 11 is required.

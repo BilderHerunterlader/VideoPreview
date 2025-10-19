@@ -1,6 +1,6 @@
 package ch.supertomcat.videopreview.mediainfo;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,7 +23,7 @@ public class MediaInfoDataProvider implements AutoCloseable {
 	/**
 	 * File
 	 */
-	private final File file;
+	private final Path file;
 
 	/**
 	 * Media Info Instance
@@ -45,9 +45,9 @@ public class MediaInfoDataProvider implements AutoCloseable {
 	 * 
 	 * @param file File
 	 */
-	public MediaInfoDataProvider(File file) {
+	public MediaInfoDataProvider(Path file) {
 		this.file = file;
-		if (mediaInfo.open(file.getAbsolutePath()) <= 0) {
+		if (mediaInfo.open(file.toAbsolutePath().toString()) <= 0) {
 			// TODO Throw checked exception
 			throw new RuntimeException("Could not open file: " + file);
 		}
@@ -80,14 +80,14 @@ public class MediaInfoDataProvider implements AutoCloseable {
 	 * @return File Path
 	 */
 	public String getFilePath() {
-		return file.getAbsolutePath();
+		return file.toAbsolutePath().toString();
 	}
 
 	/**
 	 * @return Filename
 	 */
 	public String getFilename() {
-		return file.getName();
+		return file.getFileName().toString();
 	}
 
 	/**

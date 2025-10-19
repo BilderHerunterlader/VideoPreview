@@ -1,6 +1,6 @@
 package ch.supertomcat.videopreview.creator;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -20,6 +20,6 @@ public interface PreviewCreator {
 	 * @param footerTemplate Footer Template
 	 * @throws PreviewCreatorException
 	 */
-	public void createPreview(File file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, boolean selectCaps, List<File> caps, File mainTemplate,
-			File footerTemplate) throws PreviewCreatorException;
+	public void createPreview(Path file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, boolean selectCaps, List<Path> caps, Path mainTemplate,
+			Path footerTemplate) throws PreviewCreatorException;
 }

@@ -6,9 +6,9 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
-import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,8 +64,8 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 	}
 
 	@Override
-	public void createPreview(File file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, boolean selectCaps, List<File> caps, File mainTemplate,
-			File footerTemplate) throws PreviewCreatorException {
+	public void createPreview(Path file, int width, boolean autoTile, int rows, int columns, boolean autoCaps, boolean selectCaps, List<Path> caps, Path mainTemplate,
+			Path footerTemplate) throws PreviewCreatorException {
 		try {
 			// TODO Auto Tile Mode
 
@@ -93,7 +93,7 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 				int frameChannels = 3;
 				VideoCapture video = null;
 				try {
-					video = new VideoCapture(file.getAbsolutePath());
+					video = new VideoCapture(file.toAbsolutePath().toString());
 					if (!video.isOpened()) {
 						logger.error("Could not open file: {}", file);
 						// TODO Throw exception
@@ -171,14 +171,14 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 					int frameChannels = 3;
 					VideoCapture video = null;
 					try {
-						video = new VideoCapture(file.getAbsolutePath());
+						video = new VideoCapture(file.toAbsolutePath().toString());
 						if (!video.isOpened()) {
 							logger.error("Could not open file: {}", file);
 							// TODO Throw exception
 							return;
 						}
 
-						VideoPlayerWindow videoPlayer = new VideoPlayerWindow(file.getName(), null, video, frameWidth);
+						VideoPlayerWindow videoPlayer = new VideoPlayerWindow(file.getFileName().toString(), null, video, frameWidth);
 						videoPlayer.setModal(true);
 						videoPlayer.setVisible(true);
 
@@ -233,9 +233,9 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 					int frameChannels = 3;
 
 					List<Mat> frames = new ArrayList<>();
-					for (File capFile : caps) {
+					for (Path capFile : caps) {
 						// TODO Handle read error
-						Mat cap = Imgcodecs.imread(capFile.getAbsolutePath());
+						Mat cap = Imgcodecs.imread(capFile.toAbsolutePath().toString());
 						Mat resizedCap = resizeCap(cap, frameWidth);
 
 						if (frameHeight <= 0) {
@@ -286,7 +286,7 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 			int footerRowStart = videoPreviewImage.height() - footerTextImage.height();
 			footerTextImage.copyTo(videoPreviewImage.rowRange(footerRowStart, footerRowStart + footerTextImage.height()).colRange(0, footerTextImage.width()));
 
-			Imgcodecs.imwrite(file.getAbsolutePath() + ".jpg", videoPreviewImage);
+			Imgcodecs.imwrite(file.toAbsolutePath() + ".jpg", videoPreviewImage);
 
 			videoPreviewImage.release();
 		} catch (Exception e) {
@@ -320,7 +320,7 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 		}
 	}
 
-	private String generateInfoText(File file, File template, String templateSubFolder) {
+	private String generateInfoText(Path file, Path template, String templateSubFolder) {
 		try (MediaInfoDataProvider mediaInfoDataProvider = new MediaInfoDataProvider(file)) {
 			Map<String, Object> vars = new LinkedHashMap<>();
 			vars.put("mediaInfo", mediaInfoDataProvider);
@@ -333,9 +333,9 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 			long start = System.nanoTime();
 			String templateName;
 			if (templateSubFolder != null) {
-				templateName = templateSubFolder + "/" + template.getName();
+				templateName = templateSubFolder + "/" + template.getFileName();
 			} else {
-				templateName = template.getName();
+				templateName = template.getFileName().toString();
 			}
 
 			String renderedTemplate = templateManager.renderTemplate(templateName, vars);
@@ -344,12 +344,11 @@ public class PreviewCreatorOpenCV implements PreviewCreator {
 			logger.debug("Rendered Template {} in {}ms:\n{}", template, duration, renderedTemplate);
 			return renderedTemplate;
 		} catch (Exception e) {
-			logger.error("Could not render template: {}", template.getAbsolutePath(), e);
+			logger.error("Could not render template: {}", template, e);
 			StringWriter sw = new StringWriter();
 			PrintWriter pw = new PrintWriter(sw);
 			e.printStackTrace(pw);
-			String stackTrace = sw.toString();
-			return stackTrace;
+			return sw.toString();
 		}
 	}
 

@@ -1,6 +1,7 @@
 package ch.supertomcat.videopreview;
 
-import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
@@ -31,13 +32,13 @@ public class VideoPreview {
 			protected void main(String[] args) {
 				try {
 					if (Platform.isWindows()) {
-						File openCVPath = new File(ApplicationProperties.getProperty(ApplicationMain.APPLICATION_PATH), "OpenCV");
+						Path openCVPath = Paths.get(ApplicationProperties.getProperty(ApplicationMain.APPLICATION_PATH), "OpenCV");
 						if (Platform.is64Bit()) {
-							System.load(new File(openCVPath, "java/x64/opencv_java451.dll").getAbsolutePath());
-							System.load(new File(openCVPath, "bin/opencv_videoio_ffmpeg451_64.dll").getAbsolutePath());
+							System.load(openCVPath.resolve("java/x64/opencv_java4120.dll").toAbsolutePath().toString());
+							System.load(openCVPath.resolve("bin/opencv_videoio_ffmpeg4120_64.dll").toAbsolutePath().toString());
 						} else {
-							System.load(new File(openCVPath, "java/x86/opencv_java451.dll").getAbsolutePath());
-							System.load(new File(openCVPath, "bin/opencv_videoio_ffmpeg451.dll").getAbsolutePath());
+							System.load(openCVPath.resolve("java/x86/opencv_java4120.dll").toAbsolutePath().toString());
+							System.load(openCVPath.resolve("bin/opencv_videoio_ffmpeg4120.dll").toAbsolutePath().toString());
 						}
 					} else {
 						System.loadLibrary(Core.NATIVE_LIBRARY_NAME);

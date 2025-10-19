@@ -109,7 +109,7 @@ public class CapDropTargetListener implements DropTargetListener {
 						progress.progressChanged(0, files.size(), 0);
 						int i = 0;
 						for (File file : files) {
-							Image img = CapUtil.getCapPreview(file, rowHeight);
+							Image img = CapUtil.getCapPreview(file.toPath(), rowHeight);
 							if (img != null) {
 								EventQueue.invokeLater(new Runnable() {
 									@Override

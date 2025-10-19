@@ -2,8 +2,10 @@ package ch.supertomcat.videopreview.util;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
 
@@ -26,19 +28,19 @@ public class CapUtil {
 	 * @param height Height
 	 * @return Thumbnail-Image
 	 */
-	public static Image getCapPreview(File file, int height) {
-		try {
+	public static Image getCapPreview(Path file, int height) {
+		try (InputStream in = Files.newInputStream(file)) {
 			// Load image
-			BufferedImage img = ImageIO.read(file);
+			BufferedImage img = ImageIO.read(in);
 			if (img == null) {
-				logger.error(file.getAbsolutePath() + " is not an Image");
+				logger.error("{} is not an Image", file);
 				return null;
 			} else {
 				// Generate Thumbnail and return it
-				return img.getScaledInstance(-1, height, BufferedImage.SCALE_DEFAULT);
+				return img.getScaledInstance(-1, height, Image.SCALE_DEFAULT);
 			}
 		} catch (IOException e) {
-			logger.error("Could not load image: {}", file.getAbsolutePath(), e);
+			logger.error("Could not load image: {}", file, e);
 			return null;
 		}
 	}
