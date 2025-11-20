@@ -141,23 +141,23 @@ public class VideoPlayerWindow extends JDialog {
 			}
 		});
 
-		JButton btnStart = new JButton(Icons.getTangoIcon("actions/media-playback-start.png", 16));
+		JButton btnStart = new JButton(Icons.getTangoSVGIcon("actions/media-playback-start.svg", 16));
 		btnStart.addActionListener(e -> start());
-		JButton btnPause = new JButton(Icons.getTangoIcon("actions/media-playback-pause.png", 16));
+		JButton btnPause = new JButton(Icons.getTangoSVGIcon("actions/media-playback-pause.svg", 16));
 		btnPause.addActionListener(e -> pause());
-		JButton btnStop = new JButton(Icons.getTangoIcon("actions/media-playback-stop.png", 16));
+		JButton btnStop = new JButton(Icons.getTangoSVGIcon("actions/media-playback-stop.svg", 16));
 		btnStop.addActionListener(e -> stop());
-		JButton btnCapture = new JButton(Icons.getTangoIcon("actions/media-record.png", 16));
+		JButton btnCapture = new JButton(Icons.getTangoSVGIcon("actions/media-record.svg", 16));
 		btnCapture.addActionListener(e -> capture());
-		JButton btnSkipBackward = new JButton(Icons.getTangoIcon("actions/media-skip-backward.png", 16));
+		JButton btnSkipBackward = new JButton(Icons.getTangoSVGIcon("actions/media-skip-backward.svg", 16));
 		btnSkipBackward.addActionListener(e -> skipBackward());
-		JButton btnSeekBackward = new JButton(Icons.getTangoIcon("actions/media-seek-backward.png", 16));
+		JButton btnSeekBackward = new JButton(Icons.getTangoSVGIcon("actions/media-seek-backward.svg", 16));
 		btnSeekBackward.addActionListener(e -> seekBackward());
-		JButton btnSeekForward = new JButton(Icons.getTangoIcon("actions/media-seek-forward.png", 16));
+		JButton btnSeekForward = new JButton(Icons.getTangoSVGIcon("actions/media-seek-forward.svg", 16));
 		btnSeekForward.addActionListener(e -> seekForward());
-		JButton btnSkipForward = new JButton(Icons.getTangoIcon("actions/media-skip-forward.png", 16));
+		JButton btnSkipForward = new JButton(Icons.getTangoSVGIcon("actions/media-skip-forward.svg", 16));
 		btnSkipForward.addActionListener(e -> skipForward());
-		JButton btnStep = new JButton(Icons.getTangoIcon("actions/go-next.png", 16));
+		JButton btnStep = new JButton(Icons.getTangoSVGIcon("actions/go-next.svg", 16));
 		btnStep.addActionListener(e -> step());
 
 		JPanel pnlButtons = new JPanel();
